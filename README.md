@@ -12,7 +12,7 @@ This is for that. Your memory did its best: it tripped on flat ground while the 
 
 ## The premise
 
-A small, cold calendar for horror movies that are:
+A vintage cinema lobby and release calendar for horror movies that are:
 
 - Coming to U.S. theaters
 - Still in theaters, theoretically
@@ -25,6 +25,8 @@ Think of it as the friend who actually keeps track. The one who calls you at 11p
 ---
 
 ## What's in the dark
+
+Start in the cinema lobby, then choose the monthly theatrical calendar, the at-home poster grid, or your watched list. The paper ticket reveals the actual movie backdrop on hover or keyboard focus. Light and dark themes and watched movies persist in your browser. The lobby's poster and fallen date follow the next release in the feed.
 
 Every live title gets:
 
@@ -85,4 +87,4 @@ node --test tests/watched-filter.test.mjs         # release filtering, no DOM ne
 npm test                                          # builds, then checks the rendered HTML
 ```
 
-The watched list lives in `localStorage` for now, which means it survives exactly as long as the browser does and not one reboot longer. It's keyed on title, too, so a title that changes upstream quietly loses its mark. The starter's D1 scaffolding is still in the tree if you ever want it saved server-side instead of trusting one browser to remember what you did last October. Some of us don't trust that browser. We've seen what it forgets.
+The watched list uses the existing `ns:watched` localStorage key, so saved movies carry into the redesign and survive browser restarts until site storage is cleared. Marks are keyed on title, so an upstream title change can lose its mark. The theme uses `ns:theme`. If the feed cannot load, the app identifies and displays the saved catalogue in `app/fallback-releases.json` and offers a retry. Public artwork is stored as WebP in both build targets' `design/` asset directories.
