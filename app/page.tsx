@@ -1,177 +1,631 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { applyStage, releasePool, stageCounts as countByStage, type Movie, type StageFilter } from "./releases";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import type { Movie } from "./releases";
+import {
+  cinemaPool,
+  movieTime,
+  providers,
+  rentalOnly,
+  selectFeature,
+  type CinemaView,
+} from "./cinema";
+import snapshot from "./fallback-releases.json";
 
-const movies: Movie[] = [
-  { title: "The Black Phone 2", date: "Oct 17", month: "OCT", year: "2025", genre: "Supernatural", stage: "released", availability: "Recently released", note: "The Grabber is back.", color: "violet" },
-  { title: "Frankenstein", date: "Oct 17", month: "OCT", year: "2025", genre: "Gothic", stage: "streaming", availability: "Streaming", platform: "Netflix", note: "Guillermo del Toro’s monster movie.", color: "blood" },
-  { title: "Five Nights at Freddy’s 2", date: "Dec 5", month: "DEC", year: "2025", genre: "Video game", stage: "released", availability: "Recently released", note: "Round two at Freddy Fazbear’s.", color: "acid" },
-  { title: "28 Years Later: The Bone Temple", date: "Jan 16", month: "JAN", year: "2026", genre: "Infected", stage: "released", availability: "Recently released", note: "The next chapter of rage.", color: "ember" },
-  { title: "Scream 7", date: "Feb 27", month: "FEB", year: "2026", genre: "Slasher", stage: "released", availability: "Recently released", note: "Ghostface returns.", color: "blood" },
-  { title: "The Mummy", date: "Apr 17", month: "APR", year: "2026", genre: "Monster", stage: "released", availability: "Recently released", note: "An all-new take from Lee Cronin.", color: "sand" },
-];
-
-const icons = {
-  bell: "◉",
-  plus: "+",
-  search: "⌕",
-  chevron: "›",
-};
-
+const art = "/design/";
 type HomeProps = {
-  // Where to load the release feed from. Defaults to the live API route (Vinext / ChatGPT Sites).
-  // The static GitHub Pages build passes a baked JSON URL instead.
   dataUrl?: string;
-  // How to build a trailer link for a movie. Defaults to the server redirect route; the static
-  // build passes a resolver that returns the pre-baked YouTube URL.
   resolveTrailer?: (movie: Movie) => string | undefined;
 };
-
 const defaultTrailer = (movie: Movie) =>
-  movie.tmdbId ? `/api/trailer/${movie.tmdbId}?q=${encodeURIComponent(movie.title)}` : undefined;
+  movie.tmdbId
+    ? `/api/trailer/${movie.tmdbId}?q=${encodeURIComponent(movie.title)}`
+    : movie.trailerUrl;
+const iconPaths: Record<string, string> = {
+  lamp: "M8 3h8l3 8H5l3-8ZM12 11v6M8 21h8M10 17h4v4",
+  ticket: "M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4V6ZM9 6v12",
+  tv: "M4 7h16v14H4V7ZM8 2l4 5 4-5",
+  check: "m3 12 4 4L17 6m-5 10 3 3 7-9",
+  play: "m8 4 12 8-12 8V4Z",
+  search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
+  sun: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2",
+  moon: "M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z",
+  bell: "M6 17h12l-2-3V9a4 4 0 0 0-8 0v5l-2 3ZM10 21h4M3 6l2-2m14 0 2 2",
+};
+function Icon({ name }: { name: string }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={iconPaths[name]} />
+    </svg>
+  );
+}
+function Poster({ movie, className }: { movie: Movie; className: string }) {
+  return movie.poster ? (
+    <img
+      className={className}
+      src={movie.poster}
+      alt={`${movie.title} poster`}
+      loading="lazy"
+    />
+  ) : (
+    <div className={`${className} ns-no-poster`}>{movie.title}</div>
+  );
+}
 
-export default function Home({ dataUrl = "/api/releases", resolveTrailer = defaultTrailer }: HomeProps = {}) {
-  const [active, setActive] = useState<StageFilter>("all");
+const memoryStorage = new Map<string, string>();
+function readStorage(key: string, fallback: string) {
+  try {
+    return localStorage.getItem(key) ?? memoryStorage.get(key) ?? fallback;
+  } catch {
+    return memoryStorage.get(key) ?? fallback;
+  }
+}
+function writeStorage(key: string, value: string) {
+  memoryStorage.set(key, value);
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* Keep the current session usable. */
+  }
+  window.dispatchEvent(new Event("ns:storage"));
+}
+function subscribeStorage(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("ns:storage", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("ns:storage", callback);
+  };
+}
+
+export default function Home({
+  dataUrl = "/api/releases",
+  resolveTrailer = defaultTrailer,
+}: HomeProps = {}) {
+  const [view, setView] = useState<CinemaView>("lobby");
+  const [lastView, setLastView] = useState<CinemaView>("theaters");
+  const [filter, setFilter] = useState("soon");
   const [query, setQuery] = useState("");
-  const [watched, setWatched] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const [showWatched, setShowWatched] = useState(false);
-  const [liveMovies, setLiveMovies] = useState<Movie[]>(movies);
-  const [sourceState, setSourceState] = useState("Checking what crept out this week…");
-  const [sourceStatus, setSourceStatus] = useState<"loading" | "ok" | "error">("loading");
-
-  // Load the saved watched list once, on the client. Guarded so SSR never touches localStorage.
-  useEffect(() => {
+  const savedWatched = useSyncExternalStore(
+    subscribeStorage,
+    () => readStorage("ns:watched", "[]"),
+    () => "[]",
+  );
+  const watched = useMemo(() => {
     try {
-      const saved = localStorage.getItem("ns:watched");
-      if (saved) setWatched(JSON.parse(saved));
-    } catch {}
-    setHydrated(true);
-  }, []);
+      const value: unknown = JSON.parse(savedWatched);
+      return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  }, [savedWatched]);
+  const savedTheme = useSyncExternalStore(
+    subscribeStorage,
+    () => readStorage("ns:theme", "dark"),
+    () => "dark",
+  );
+  const theme = savedTheme === "light" ? "light" : "dark";
+  const [movies, setMovies] = useState<Movie[]>(snapshot.releases as Movie[]);
+  const [chosenTitle, setChosenTitle] = useState<string | null>(null);
+  const [sourceStatus, setSourceStatus] = useState<"loading" | "ok" | "error">(
+    "loading",
+  );
+  const [updatedAt, setUpdatedAt] = useState(snapshot.updatedAt);
+  const [retry, setRetry] = useState(0);
 
-  // Persist after hydration only, so the initial empty render doesn't overwrite saved data.
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem("ns:watched", JSON.stringify(watched));
-    } catch {}
-  }, [watched, hydrated]);
-
-  useEffect(() => {
-    fetch(dataUrl, dataUrl.startsWith("/api") ? { cache: "no-store" } : undefined)
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Release source unavailable")))
-      .then((payload: { releases: Movie[]; updatedAt: string }) => {
-        if (payload.releases.length) setLiveMovies(payload.releases);
-        setSourceState(`Fresh from TMDb · ${new Date(payload.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
+    const controller = new AbortController();
+    fetch(dataUrl, { signal: controller.signal, cache: "no-store" })
+      .then((response) =>
+        response.ok
+          ? response.json()
+          : Promise.reject(new Error("Release feed unavailable")),
+      )
+      .then((payload: { releases?: Movie[]; updatedAt?: string }) => {
+        if (!Array.isArray(payload.releases))
+          throw new Error("Invalid release feed");
+        setMovies(payload.releases);
+        setUpdatedAt(payload.updatedAt ?? "");
         setSourceStatus("ok");
       })
       .catch(() => {
-        setSourceState("Live feed went dark · showing the usual suspects");
-        setSourceStatus("error");
+        if (!controller.signal.aborted) setSourceStatus("error");
       });
-  }, []);
-
-  // "?" opens the repo, same as disney-bracket. Skipped while typing, so searching for "?" still works.
+    return () => controller.abort();
+  }, [dataUrl, retry]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "?") return;
-      if ((event.target as HTMLElement | null)?.closest("input,textarea")) return;
-      window.open("https://github.com/snackdriven/now-screaming", "_blank", "noopener,noreferrer");
+      if (
+        event.key === "?" &&
+        !(event.target as HTMLElement)?.closest(
+          "input,textarea,[contenteditable]",
+        )
+      )
+        window.open(
+          "https://github.com/snackdriven/now-screaming",
+          "_blank",
+          "noopener,noreferrer",
+        );
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const toggleWatched = (title: string) => setWatched((current) => current.includes(title) ? current.filter((item) => item !== title) : [...current, title]);
-  const featureMovie = liveMovies.find((movie) => movie.stage === "soon" && movie.backdrop)
-    ?? liveMovies.find((movie) => movie.backdrop)
-    ?? liveMovies.find((movie) => movie.stage === "soon")
-    ?? liveMovies[0];
-  // Eyebrow reuses the row's availability vocabulary so the hero and rows read the same; "soon" keeps the punchier label.
-  const featureEyebrow = featureMovie.stage === "soon" ? "NEXT UP" : featureMovie.availability.toUpperCase();
-
   const pool = useMemo(
-    () => releasePool({ movies: liveMovies, query, showWatched, watched, featureTitle: featureMovie.title }),
-    [liveMovies, query, showWatched, watched, featureMovie],
+    () => cinemaPool(movies, view, filter, query, watched),
+    [movies, view, filter, query, watched],
   );
-  const filtered = useMemo(() => applyStage(pool, active), [pool, active]);
-
-  // Hide the per-row status pill when every visible row shows the same availability — in a single-stage
-  // tab it just echoes the tab. Keep it when the rows actually differ (All releases, stream-vs-rent, Watched).
-  const showStatus = useMemo(() => new Set(filtered.map((movie) => movie.availability)).size > 1, [filtered]);
-
-  const stageCounts = useMemo(() => countByStage(pool), [pool]);
-
-  // A stage tab can empty out under you — un-mark the last watched title in it, or enter the
-  // watched view while a stage you've watched nothing from is selected. Fall back to All rather
-  // than leaving a lit-up tab over an empty list.
-  useEffect(() => {
-    if (active !== "all" && stageCounts[active] === 0) setActive("all");
-  }, [active, stageCounts]);
+  const feature = selectFeature(
+    movies,
+    view === "watched" ? lastView : view,
+    filter,
+    chosenTitle,
+  );
+  const lobbyMovie = selectFeature(movies, "theaters", "soon");
+  const homeTicket = feature?.stage === "streaming";
+  const ticketProvider = feature
+    ? (providers(feature).sort((a, b) => a.length - b.length)[0] ??
+      "Availability below")
+    : "";
+  const themeDestination = theme === "dark" ? "light" : "dark";
+  const sourceText =
+    sourceStatus === "loading"
+      ? "Checking the release feed…"
+      : sourceStatus === "error"
+        ? "Feed unavailable — showing the saved catalogue"
+        : updatedAt
+          ? `Updated ${new Date(updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+          : "Release feed loaded";
+  const options =
+    view === "home"
+      ? [
+          ["all", "All at home"],
+          ["subscription", "Subscription streaming"],
+          ["rent", "Rent or buy"],
+        ]
+      : view === "watched"
+        ? [["all", "All watched"]]
+        : [
+            ["all", "All theatrical"],
+            ["theaters", "In theaters"],
+            ["soon", "Coming soon"],
+            ["released", "Recently released"],
+          ];
+  function navigate(
+    destination: CinemaView,
+    stage = destination === "theaters" ? "soon" : "all",
+    chosen: string | null = null,
+  ) {
+    setView(destination);
+    setFilter(stage);
+    setChosenTitle(chosen);
+    setQuery("");
+    if (destination === "home" || destination === "theaters")
+      setLastView(destination);
+  }
+  function openMovie(movie: Movie) {
+    navigate(
+      movie.stage === "streaming" ? "home" : "theaters",
+      movie.stage === "streaming" ? "all" : movie.stage,
+      movie.title,
+    );
+  }
+  function pickMovie() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const choices = movies.filter(
+      (movie) =>
+        !watched.includes(movie.title) &&
+        ((movie.stage === "streaming" && !rentalOnly(movie)) ||
+          (movie.stage === "soon" && movieTime(movie) >= today.getTime())),
+    );
+    const pool = choices.length ? choices : movies;
+    if (pool.length) openMovie(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  const toggleWatched = (title: string) =>
+    writeStorage(
+      "ns:watched",
+      JSON.stringify(
+        watched.includes(title)
+          ? watched.filter((value) => value !== title)
+          : [...watched, title],
+      ),
+    );
+  function watchButton(movie: Movie) {
+    const marked = watched.includes(movie.title);
+    return (
+      <button
+        onClick={() => toggleWatched(movie.title)}
+        aria-pressed={marked}
+        aria-label={`${marked ? "Unmark" : "Mark"} ${movie.title} as watched`}
+      >
+        {marked ? "Watched ✓" : "+ Watched"}
+      </button>
+    );
+  }
+  function trailer(movie: Movie) {
+    const url = resolveTrailer(movie);
+    return url ? (
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        Trailer ↗
+      </a>
+    ) : null;
+  }
 
   return (
-    <main>
-      <aside className="sidebar">
-        <a className="brand" href="#top"><span className="brand-mark">N</span><span>now<br />screaming</span></a>
+    <div id="ns-preview" data-theme={theme} data-view={view}>
+      <aside className="ns-sidebar">
+        <a
+          className="ns-brand"
+          href="#ns-main"
+          onClick={() => navigate("lobby")}
+        >
+          <img src={`${art}ghost.webp`} alt="" />
+          <span>
+            now
+            <br />
+            screaming<span className="ns-brand-dot">.</span>
+          </span>
+        </a>
         <nav aria-label="Tracker navigation">
-          <a className={showWatched ? "" : "nav-active"} aria-current={showWatched ? undefined : "page"} href="#releases" onClick={() => setShowWatched(false)}><span>✦</span> Releases</a>
-          <button className={showWatched ? "nav-active" : ""} aria-current={showWatched ? "page" : undefined} onClick={() => { if (!showWatched) setActive("all"); setShowWatched((value) => !value); }}><span>◌</span> Watched <b>{watched.length}</b></button>
+          {(
+            [
+              ["lobby", "lamp", "Cinema lobby"],
+              ["theaters", "ticket", "Theaters & coming soon"],
+              ["home", "tv", "Watch at home"],
+              ["watched", "check", "Watched"],
+            ] as const
+          ).map(([destination, icon, label]) => (
+            <button
+              key={destination}
+              className={`ns-nav ${view === destination ? "active" : ""}`}
+              data-view={destination}
+              aria-pressed={view === destination}
+              onClick={() => navigate(destination)}
+            >
+              <Icon name={icon} />
+              <span className="ns-nav-text">{label}</span>
+              {destination === "watched" && (
+                <span id="ns-count">{watched.length}</span>
+              )}
+            </button>
+          ))}
         </nav>
-        <div className="sidebar-bottom">
-          <p><i className={sourceStatus} /> U.S. release data<br /><small>{sourceState}</small></p>
+        <div className="ns-sidebar-note">
+          <span className="ns-spark">✦</span>
+          <p>
+            A little less forgetting.
+            <br />A little more screaming.
+          </p>
         </div>
+        <p className="ns-source">
+          U.S. horror releases
+          <br />
+          <span aria-live="polite">{sourceText}</span>
+        </p>
       </aside>
-
-      <section className="content" id="top">
-        <header>
-          <div>
-            <p className="eyebrow">U.S. HORROR · THEATERS TO STREAMING</p>
-            <h1>You missed it in theaters.<br /><em>It’s probably streaming by now.</em></h1>
-          </div>
-        </header>
-
-        <section className="feature" aria-label="Featured release">
-          <div className="feature-art">{featureMovie.backdrop && <img src={featureMovie.backdrop} alt="" />}<span className="moon">◒</span><span className="trees">♠ ♠ ♠</span></div>
-          <div className="feature-copy">
-            <p className="eyebrow">{featureEyebrow}</p>
-            <h2>{featureMovie.title}</h2>
-            <p>{featureMovie.note}</p>
-            <div className="feature-meta"><span>{featureMovie.genre.toUpperCase()}</span>{featureMovie.platform && <><span>•</span><span>{featureMovie.platform.toUpperCase()}</span></>}</div>
-            {resolveTrailer(featureMovie) && <a className="outline-button" href={resolveTrailer(featureMovie)} target="_blank" rel="noreferrer">Watch trailer {icons.chevron}</a>}
-          </div>
-          <div className="date-badge"><b>{featureMovie.date.split(" ")[1]}</b><span>{featureMovie.month}</span><small>{featureMovie.year}</small></div>
-        </section>
-
-        <section className="tracker" id="releases">
-          <div className="tracker-heading">
-            <div><p className="eyebrow">THE RELEASE TRACKER</p><h2>Out now, and on the way</h2></div>
-            <label className="search"><span>{icons.search}</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search titles, subgenres, or notes" />{query && <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">×</button>}</label>
-          </div>
-          <div className="filters" role="group" aria-label="Release filters">
-            {([['all', 'All releases'], ['theaters', 'In theaters'], ['streaming', 'Available at home'], ['released', 'Recently released'], ['soon', 'Coming soon']] as const).map(([id, label]) => <button key={id} className={active === id ? "selected" : ""} aria-pressed={active === id} disabled={stageCounts[id] === 0} onClick={() => setActive(id)}>{label} <b>{stageCounts[id]}</b></button>)}
-          </div>
-          <div className="release-list">
-            {sourceStatus === "loading" ? Array.from({ length: 6 }).map((_, index) => <div className="skeleton-row" key={index} aria-hidden="true" />) : filtered.map((movie) => <article className="release-row" key={movie.tmdbId ?? movie.title}>
-              <time><strong>{movie.date.split(" ")[1]}</strong><span>{movie.month}<br />{movie.year}</span></time>
-              <div className={`poster ${movie.color}`} aria-hidden="true">{movie.poster ? <img src={movie.poster} alt="" /> : <span>{movie.title.split(" ").slice(0, 2).join("\n")}</span>}</div>
-              <div className="movie-info"><h3>{movie.title}</h3><p>{movie.genre} <span>·</span> {movie.note}</p></div>
-              <div className="availability">{showStatus && <span className={`status ${movie.stage}`}>{movie.availability}</span>}{movie.platform && <b>{movie.platform}</b>}</div>
-              <div className="row-actions">
-                {resolveTrailer(movie) && <a className="trailer-button" href={resolveTrailer(movie)} target="_blank" rel="noreferrer">Trailer ↗</a>}
-                <button onClick={() => toggleWatched(movie.title)} className={watched.includes(movie.title) ? "watched" : "watch-button"} aria-label={`Mark ${movie.title} as watched`}>{watched.includes(movie.title) ? "Watched ✓" : "+ Watched"}</button>
+      <main id="ns-main" className="ns-main">
+        <div className="ns-topbar">
+          <span>From theaters to your couch</span>
+          <button
+            id="ns-theme"
+            aria-label={`Switch to ${themeDestination} mode`}
+            onClick={() => writeStorage("ns:theme", themeDestination)}
+          >
+            <Icon name={themeDestination === "light" ? "sun" : "moon"} />
+            <span>{themeDestination === "light" ? "Light" : "Dark"} mode</span>
+          </button>
+        </div>
+        {view === "lobby" ? (
+          <section
+            className="ns-lobby ns-cinema-lobby"
+            aria-label="Cinema lobby"
+          >
+            <div className="ns-lobby-heading">
+              <h1>Lobby under construction.</h1>
+            </div>
+            <nav className="ns-overhead-board" aria-label="Choose a movie view">
+              <button onClick={() => navigate("theaters", "theaters")}>
+                <span>Now showing</span>
+                <strong>In theaters</strong>
+                <small>Make a night of it</small>
+              </button>
+              <button onClick={() => navigate("theaters", "soon")}>
+                <span>Next attractions</span>
+                <strong>Coming soon</strong>
+                <small>Save the date</small>
+              </button>
+              <button onClick={() => navigate("home")}>
+                <span>Tonight at home</span>
+                <strong>Watch at home</strong>
+                <small>Streaming, rent & buy</small>
+              </button>
+            </nav>
+            <div className="ns-lobby-gallery">
+              <div className="ns-booth">
+                <img
+                  src={`${art}cinema-lobby-oversized-smile.webp`}
+                  alt="A monochrome paper-doll usher taped over a colorful vintage cinema lobby"
+                />
+                <button
+                  className="ns-booth-bell"
+                  onClick={pickMovie}
+                  disabled={!movies.length}
+                  aria-label="Ring the service bell to pick a movie"
+                />
               </div>
-            </article>)}
-            {sourceStatus !== "loading" && filtered.length === 0 && <p className="empty">{
-              showWatched && watched.length === 0
-                ? "Nothing marked watched yet. Tag a few so Future You can’t pretend she never saw them."
-                : query
-                  ? `Nothing here goes by “${query}.” Try another name.`
-                  : "Nothing lurking in this corner yet. Try another filter."
-            }</p>}
-          </div>
-        </section>
-      </section>
-    </main>
+              {lobbyMovie && (
+                <>
+                  <button
+                    className="ns-poster-marquee"
+                    onClick={() => openMovie(lobbyMovie)}
+                    aria-label={`View ${lobbyMovie.title} release and trailer`}
+                  >
+                    <span
+                      className="ns-craft-tape ns-craft-tape-a"
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="ns-craft-tape ns-craft-tape-d"
+                      aria-hidden="true"
+                    />
+                    <Poster movie={lobbyMovie} className="ns-live-poster" />
+                    <div className="ns-movie-slip" aria-hidden="true" />
+                  </button>
+                  <span className="ns-fallen-date">
+                    <span className="ns-sr-only">
+                      {lobbyMovie.title} theatrical release:{" "}
+                    </span>
+                    <span className="ns-release-value">
+                      {lobbyMovie.date} <small>{lobbyMovie.year}</small>
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="ns-lobby-bottom">
+              <div className="ns-lobby-bell">
+                <button onClick={pickMovie} disabled={!movies.length}>
+                  <Icon name="bell" />
+                  Pick a movie for me
+                </button>
+                <span>Or ring the brass bell at the box office.</span>
+              </div>
+              <p className="ns-lobby-footnote">
+                Dates and availability for U.S. releases.
+              </p>
+            </div>
+          </section>
+        ) : (
+          <>
+            {feature && (
+              <header className="ns-header" aria-label="Featured movie ticket">
+                <div className="ns-ticket-main">
+                  {feature.backdrop && (
+                    <img
+                      className="ns-backdrop"
+                      src={feature.backdrop}
+                      alt=""
+                    />
+                  )}
+                  <div className="ns-ticket-print">
+                    <div className="ns-ticket-masthead">
+                      <img
+                        className="ns-ticket-mascot"
+                        src={`${art}${homeTicket ? "now-screaming-cozy-ghost.webp" : "ghost.webp"}`}
+                        alt={
+                          homeTicket
+                            ? "Cozy ghost in a blanket with popcorn"
+                            : "Ghost with a calendar and ticket"
+                        }
+                      />
+                      <div>
+                        <span className="ns-cinema-label">
+                          {homeTicket ? "Movie night" : "Cinema"}
+                        </span>
+                        <span className="ns-ticket-label">Ticket</span>
+                      </div>
+                      {resolveTrailer(feature) && (
+                        <a
+                          className="ns-ticket-trailer"
+                          href={resolveTrailer(feature)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Icon name="play" />
+                          <span>Trailer</span>
+                        </a>
+                      )}
+                    </div>
+                    <h1 className="ns-movie-heading">{feature.title}</h1>
+                  </div>
+                </div>
+                <div className="ns-header-stub">
+                  <div className="ns-stub-print">
+                    <span className="ns-stub-admission">
+                      {homeTicket ? "Stay in" : "Admit one"}
+                    </span>
+                    <div className="ns-stub-details">
+                      {homeTicket ? (
+                        <>
+                          <span>Watch on</span>
+                          <strong
+                            className={`ns-stub-service ${ticketProvider.length > 18 ? "ns-long-service" : ""}`}
+                          >
+                            {ticketProvider}
+                          </strong>
+                          <span>
+                            {rentalOnly(feature)
+                              ? "Rent or buy"
+                              : "Subscription streaming"}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <strong className="ns-stub-day">
+                            {feature.date.split(" ")[1]}
+                          </strong>
+                          <span className="ns-stub-month">
+                            {feature.date.split(" ")[0]} {feature.year}
+                          </span>
+                          <span>Theatrical release</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </header>
+            )}
+            <section className="ns-tracker" aria-label="Release tracker">
+              <div className="ns-tracker-heading">
+                <h2 id="ns-list-heading">
+                  {view === "home"
+                    ? "Find tonight’s movie"
+                    : view === "watched"
+                      ? "Already survived"
+                      : "Coming to a theater near you"}
+                </h2>
+                <label className="ns-search">
+                  <Icon name="search" />
+                  <input
+                    id="ns-search-input"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    aria-label="Search releases"
+                    placeholder="Find your next scare"
+                  />
+                </label>
+              </div>
+              <div
+                className="ns-filters"
+                role="group"
+                aria-label="Release stage"
+              >
+                {options.map(([stage, label]) => (
+                  <button
+                    key={stage}
+                    aria-pressed={filter === stage}
+                    onClick={() => {
+                      setFilter(stage);
+                      setChosenTitle(null);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {sourceStatus === "error" && (
+                <p className="ns-error" role="status">
+                  The feed went dark. This is the saved catalogue.
+                  <button
+                    onClick={() => {
+                      setSourceStatus("loading");
+                      setRetry((value) => value + 1);
+                    }}
+                  >
+                    Try again
+                  </button>
+                </p>
+              )}
+              <div
+                id="ns-rows"
+                className={view === "home" ? "ns-poster-grid" : ""}
+                aria-label="Movies"
+              >
+                {pool.map((movie, index) =>
+                  view === "home" ? (
+                    <article
+                      className="ns-poster-card"
+                      key={movie.tmdbId ?? movie.title}
+                    >
+                      <Poster movie={movie} className="ns-card-art" />
+                      <h3>{movie.title}</h3>
+                      <div className="ns-card-status">
+                        <strong>
+                          {rentalOnly(movie)
+                            ? "Rent or buy"
+                            : "Subscription streaming"}
+                        </strong>
+                        <span className="ns-service ns-provider-list">
+                          {providers(movie).map((provider) => (
+                            <span className="ns-provider-name" key={provider}>
+                              {provider}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                      <div className="ns-card-actions">
+                        {trailer(movie)}
+                        {watchButton(movie)}
+                      </div>
+                    </article>
+                  ) : (
+                    <Fragment key={movie.tmdbId ?? movie.title}>
+                      {(!index ||
+                        pool[index - 1].month !== movie.month ||
+                        pool[index - 1].year !== movie.year) && (
+                        <h3 className="ns-month-label">
+                          {new Date(movieTime(movie)).toLocaleString("en-US", {
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </h3>
+                      )}
+                      <article className="ns-row">
+                        <time className="ns-date">
+                          <strong>{movie.date.split(" ")[1]}</strong>
+                          <span>{movie.date.split(" ")[0]}</span>
+                        </time>
+                        <Poster movie={movie} className="ns-poster" />
+                        <div className="ns-film">
+                          <h3>{movie.title}</h3>
+                          <p>{movie.genre}</p>
+                        </div>
+                        <span className="ns-status">{movie.availability}</span>
+                        <div className="ns-actions">
+                          {trailer(movie)}
+                          {watchButton(movie)}
+                        </div>
+                      </article>
+                    </Fragment>
+                  ),
+                )}
+                {!pool.length && (
+                  <p className="ns-empty">
+                    {query
+                      ? "No movies match that search."
+                      : view === "watched"
+                        ? "Nothing marked watched yet. Save the movies you’ve survived."
+                        : "No movies in this view yet. Try another filter."}
+                  </p>
+                )}
+              </div>
+              <footer className="ns-footer">
+                <span>Good movies. Bad dreams.</span>
+                <span>Movie data: TMDb · U.S. availability: Watchmode</span>
+              </footer>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
   );
 }
