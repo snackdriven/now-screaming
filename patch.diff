@@ -1,0 +1,15 @@
+--- package.json
++++ package.json
+@@ -14,11 +14,7 @@
+     "build:pages": "vite build --config vite.pages.config.ts",
+     "test:pages": "npm run build:pages && node --test tests/pages-404.test.mjs",
+     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
+-<<<<<<< HEAD
+-    "test": "npm run build && node scripts/test-runner.js",
+-=======
+-    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/watched-filter.test.mjs tests/cinema.test.mjs tests/releases.test.mjs",
+->>>>>>> origin/main
++    "test": "npm run build && node scripts/test-runner.js",
+     "validate:artifact": "bash scripts/validate-artifact.sh",
+     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
+     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"

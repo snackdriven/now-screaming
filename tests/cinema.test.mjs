@@ -55,3 +55,9 @@ test("feature selection handles empty feeds and honors the chosen movie", () => 
   assert.equal(selectFeature(films, "theaters", "soon")?.title, "Upcoming");
   assert.equal(selectFeature(films, "home", "all", "Rental")?.title, "Rental");
 });
+
+test("providers handles missing or empty platform data", () => {
+  assert.deepEqual(providers(movie("No platform", "soon")), []);
+  assert.deepEqual(providers(movie("Empty platform", "soon", { platform: "" })), []);
+  assert.deepEqual(providers(movie("Whitespace platform", "soon", { platform: "   " })), []);
+});

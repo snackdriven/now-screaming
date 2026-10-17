@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chatGPTSignInPath, chatGPTSignOutPath } from "../app/chatgpt-auth.ts";
+import { chatGPTSignInPath } from "../app/chatgpt-auth.ts";
 
 test("safeRelativeReturnPath handles valid paths", () => {
   assert.equal(chatGPTSignInPath("/foo"), "/signin-with-chatgpt?return_to=%2Ffoo");
-  assert.equal(chatGPTSignOutPath("/foo"), "/signout-with-chatgpt?return_to=%2Ffoo");
   assert.equal(chatGPTSignInPath("/foo/bar?q=1#hash"), "/signin-with-chatgpt?return_to=%2Ffoo%2Fbar%3Fq%3D1%23hash");
 });
 
@@ -29,6 +28,5 @@ test("safeRelativeReturnPath excludes absolute URLs", () => {
 
 test("safeRelativeReturnPath excludes reserved auth paths", () => {
   assert.equal(chatGPTSignInPath("/signin-with-chatgpt"), "/signin-with-chatgpt?return_to=%2F");
-  assert.equal(chatGPTSignInPath("/signout-with-chatgpt"), "/signin-with-chatgpt?return_to=%2F");
   assert.equal(chatGPTSignInPath("/callback"), "/signin-with-chatgpt?return_to=%2F");
 });

@@ -127,12 +127,20 @@ export async function GET() {
     const movies = [...recentMovies, ...upcomingMovies].filter((movie, index, all) =>
       all.findIndex((candidate) => candidate.id === movie.id) === index,
     );
+    const homeAvailabilities = await Promise.all(
+      movies.map((movie) => {
+        const releaseIsPast = movie.release_date <= today;
+        return releaseIsPast && watchmodeApiKey
+          ? getHomeAvailability(movie.id, watchmodeApiKey)
+          : null;
+      }),
+    );
     const releases = [];
     for (const [index, movie] of movies.entries()) {
       const [month, day] = displayDate(movie.release_date).split(" ");
       const genre = movie.genre_ids.map((id) => genreNames[id]).find(Boolean) ?? "Horror";
       const releaseIsPast = movie.release_date <= today;
-      const home = releaseIsPast && watchmodeApiKey ? await getHomeAvailability(movie.id, watchmodeApiKey) : null;
+      const home = homeAvailabilities[index];
       const stage = home
         ? "streaming" as const
         : nowPlayingMovieIds.has(movie.id)
