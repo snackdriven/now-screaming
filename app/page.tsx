@@ -272,360 +272,459 @@ export default function Home({
 
   return (
     <div id="ns-preview" data-theme={theme} data-view={view}>
-      <aside className="ns-sidebar">
-        <a
-          className="ns-brand"
-          href="#ns-main"
-          onClick={() => navigate("lobby")}
-        >
-          <img src={`${art}ghost.webp`} alt="" />
-          <span>
-            now
-            <br />
-            screaming<span className="ns-brand-dot">.</span>
-          </span>
-        </a>
-        <nav aria-label="Tracker navigation">
-          {(
-            [
-              ["lobby", "lamp", "Cinema lobby"],
-              ["theaters", "ticket", "Theaters & coming soon"],
-              ["home", "tv", "Watch at home"],
-              ["watched", "check", "Watched"],
-            ] as const
-          ).map(([destination, icon, label]) => (
-            <button
-              key={destination}
-              className={`ns-nav ${view === destination ? "active" : ""}`}
-              data-view={destination}
-              aria-pressed={view === destination}
-              onClick={() => navigate(destination)}
-            >
-              <Icon name={icon} />
-              <span className="ns-nav-text">{label}</span>
-              {destination === "watched" && (
-                <span id="ns-count">{watched.length}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-        <div className="ns-sidebar-note">
-          <span className="ns-spark">✦</span>
-          <p>
-            A little less forgetting.
-            <br />A little more screaming.
-          </p>
-        </div>
-        <p className="ns-source">
-          U.S. horror releases
-          <br />
-          <span aria-live="polite">{sourceText}</span>
-        </p>
-      </aside>
+      <Sidebar view={view} watched={watched} sourceText={sourceText} navigate={navigate as (dest: CinemaView) => void} />
       <main id="ns-main" className="ns-main">
-        <div className="ns-topbar">
-          <span>From theaters to your couch</span>
-          <button
-            id="ns-theme"
-            aria-label={`Switch to ${themeDestination} mode`}
-            onClick={() => writeStorage("ns:theme", themeDestination)}
-          >
-            <Icon name={themeDestination === "light" ? "sun" : "moon"} />
-            <span>{themeDestination === "light" ? "Light" : "Dark"} mode</span>
-          </button>
-        </div>
+        <Topbar themeDestination={themeDestination} />
         {view === "lobby" ? (
-          <section
-            className="ns-lobby ns-cinema-lobby"
-            aria-label="Cinema lobby"
-          >
-            <div className="ns-lobby-heading">
-              <h1>Lobby under construction.</h1>
-            </div>
-            <nav className="ns-overhead-board" aria-label="Choose a movie view">
-              <button onClick={() => navigate("theaters", "theaters")}>
-                <span>Now showing</span>
-                <strong>In theaters</strong>
-                <small>Make a night of it</small>
-              </button>
-              <button onClick={() => navigate("theaters", "soon")}>
-                <span>Next attractions</span>
-                <strong>Coming soon</strong>
-                <small>Save the date</small>
-              </button>
-              <button onClick={() => navigate("home")}>
-                <span>Tonight at home</span>
-                <strong>Watch at home</strong>
-                <small>Streaming, rent & buy</small>
-              </button>
-            </nav>
-            <div className="ns-lobby-gallery">
-              <div className="ns-booth">
-                <img
-                  src={`${art}cinema-lobby-oversized-smile.webp`}
-                  alt="A monochrome paper-doll usher taped over a colorful vintage cinema lobby"
-                />
-                <button
-                  className="ns-booth-bell"
-                  onClick={pickMovie}
-                  disabled={!movies.length}
-                  aria-label="Ring the service bell to pick a movie"
-                />
-              </div>
-              {lobbyMovie && (
-                <>
-                  <button
-                    className="ns-poster-marquee"
-                    onClick={() => openMovie(lobbyMovie)}
-                    aria-label={`View ${lobbyMovie.title} release and trailer`}
-                  >
-                    <span
-                      className="ns-craft-tape ns-craft-tape-a"
-                      aria-hidden="true"
-                    />
-                    <span
-                      className="ns-craft-tape ns-craft-tape-d"
-                      aria-hidden="true"
-                    />
-                    <Poster movie={lobbyMovie} className="ns-live-poster" />
-                    <div className="ns-movie-slip" aria-hidden="true" />
-                  </button>
-                  <span className="ns-fallen-date">
-                    <span className="ns-sr-only">
-                      {lobbyMovie.title} theatrical release:{" "}
-                    </span>
-                    <span className="ns-release-value">
-                      {lobbyMovie.date} <small>{lobbyMovie.year}</small>
-                    </span>
-                  </span>
-                </>
-              )}
-            </div>
-            <div className="ns-lobby-bottom">
-              <div className="ns-lobby-bell">
-                <button onClick={pickMovie} disabled={!movies.length}>
-                  <Icon name="bell" />
-                  Pick a movie for me
-                </button>
-                <span>Or ring the brass bell at the box office.</span>
-              </div>
-              <p className="ns-lobby-footnote">
-                Dates and availability for U.S. releases.
-              </p>
-            </div>
-          </section>
+          <Lobby
+            movies={movies}
+            lobbyMovie={lobbyMovie}
+            pickMovie={pickMovie}
+            navigate={navigate as (dest: CinemaView, stage?: string) => void}
+            openMovie={openMovie}
+          />
         ) : (
           <>
             {feature && (
-              <header className="ns-header" aria-label="Featured movie ticket">
-                <div className="ns-ticket-main">
-                  {feature.backdrop && (
-                    <img
-                      className="ns-backdrop"
-                      src={feature.backdrop}
-                      alt=""
-                    />
-                  )}
-                  <div className="ns-ticket-print">
-                    <div className="ns-ticket-masthead">
-                      <img
-                        className="ns-ticket-mascot"
-                        src={`${art}${homeTicket ? "now-screaming-cozy-ghost.webp" : "ghost.webp"}`}
-                        alt={
-                          homeTicket
-                            ? "Cozy ghost in a blanket with popcorn"
-                            : "Ghost with a calendar and ticket"
-                        }
-                      />
-                      <div>
-                        <span className="ns-cinema-label">
-                          {homeTicket ? "Movie night" : "Cinema"}
-                        </span>
-                        <span className="ns-ticket-label">Ticket</span>
-                      </div>
-                      {resolveTrailer(feature) && (
-                        <a
-                          className="ns-ticket-trailer"
-                          href={resolveTrailer(feature)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Icon name="play" />
-                          <span>Trailer</span>
-                        </a>
-                      )}
-                    </div>
-                    <h1 className="ns-movie-heading">{feature.title}</h1>
-                  </div>
-                </div>
-                <div className="ns-header-stub">
-                  <div className="ns-stub-print">
-                    <span className="ns-stub-admission">
-                      {homeTicket ? "Stay in" : "Admit one"}
-                    </span>
-                    <div className="ns-stub-details">
-                      {homeTicket ? (
-                        <>
-                          <span>Watch on</span>
-                          <strong
-                            className={`ns-stub-service ${ticketProvider.length > 18 ? "ns-long-service" : ""}`}
-                          >
-                            {ticketProvider}
-                          </strong>
-                          <span>
-                            {rentalOnly(feature)
-                              ? "Rent or buy"
-                              : "Subscription streaming"}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <strong className="ns-stub-day">
-                            {feature.date.split(" ")[1]}
-                          </strong>
-                          <span className="ns-stub-month">
-                            {feature.date.split(" ")[0]} {feature.year}
-                          </span>
-                          <span>Theatrical release</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </header>
+              <FeatureTicket
+                feature={feature}
+                homeTicket={homeTicket}
+                resolveTrailer={resolveTrailer}
+                ticketProvider={ticketProvider}
+              />
             )}
-            <section className="ns-tracker" aria-label="Release tracker">
-              <div className="ns-tracker-heading">
-                <h2 id="ns-list-heading">
-                  {view === "home"
-                    ? "Find tonight’s movie"
-                    : view === "watched"
-                      ? "Already survived"
-                      : "Coming to a theater near you"}
-                </h2>
-                <label className="ns-search">
-                  <Icon name="search" />
-                  <input
-                    id="ns-search-input"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    aria-label="Search releases"
-                    placeholder="Find your next scare"
-                  />
-                </label>
-              </div>
-              <div
-                className="ns-filters"
-                role="group"
-                aria-label="Release stage"
-              >
-                {options.map(([stage, label]) => (
-                  <button
-                    key={stage}
-                    aria-pressed={filter === stage}
-                    onClick={() => {
-                      setFilter(stage);
-                      setChosenTitle(null);
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {sourceStatus === "error" && (
-                <p className="ns-error" role="status">
-                  The feed went dark. This is the saved catalogue.
-                  <button
-                    onClick={() => {
-                      setSourceStatus("loading");
-                      setRetry((value) => value + 1);
-                    }}
-                  >
-                    Try again
-                  </button>
-                </p>
-              )}
-              <div
-                id="ns-rows"
-                className={view === "home" ? "ns-poster-grid" : ""}
-                aria-label="Movies"
-              >
-                {pool.map((movie, index) =>
-                  view === "home" ? (
-                    <article
-                      className="ns-poster-card"
-                      key={movie.tmdbId ?? movie.title}
-                    >
-                      <Poster movie={movie} className="ns-card-art" />
-                      <h3>{movie.title}</h3>
-                      <div className="ns-card-status">
-                        <strong>
-                          {rentalOnly(movie)
-                            ? "Rent or buy"
-                            : "Subscription streaming"}
-                        </strong>
-                        <span className="ns-service ns-provider-list">
-                          {providers(movie).map((provider) => (
-                            <span className="ns-provider-name" key={provider}>
-                              {provider}
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                      <div className="ns-card-actions">
-                        {trailer(movie)}
-                        {watchButton(movie)}
-                      </div>
-                    </article>
-                  ) : (
-                    <Fragment key={movie.tmdbId ?? movie.title}>
-                      {(!index ||
-                        pool[index - 1].month !== movie.month ||
-                        pool[index - 1].year !== movie.year) && (
-                        <h3 className="ns-month-label">
-                          {new Date(movieTime(movie)).toLocaleString("en-US", {
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </h3>
-                      )}
-                      <article className="ns-row">
-                        <time className="ns-date">
-                          <strong>{movie.date.split(" ")[1]}</strong>
-                          <span>{movie.date.split(" ")[0]}</span>
-                        </time>
-                        <Poster movie={movie} className="ns-poster" />
-                        <div className="ns-film">
-                          <h3>{movie.title}</h3>
-                          <p>{movie.genre}</p>
-                        </div>
-                        <span className="ns-status">{movie.availability}</span>
-                        <div className="ns-actions">
-                          {trailer(movie)}
-                          {watchButton(movie)}
-                        </div>
-                      </article>
-                    </Fragment>
-                  ),
-                )}
-                {!pool.length && (
-                  <p className="ns-empty">
-                    {query
-                      ? "No movies match that search."
-                      : view === "watched"
-                        ? "Nothing marked watched yet. Save the movies you’ve survived."
-                        : "No movies in this view yet. Try another filter."}
-                  </p>
-                )}
-              </div>
-              <footer className="ns-footer">
-                <span>Good movies. Bad dreams.</span>
-                <span>Movie data: TMDb · U.S. availability: Watchmode</span>
-              </footer>
-            </section>
+            <Tracker
+              view={view}
+              query={query}
+              setQuery={setQuery}
+              options={options}
+              filter={filter}
+              setFilter={setFilter}
+              setChosenTitle={setChosenTitle}
+              sourceStatus={sourceStatus}
+              setSourceStatus={setSourceStatus}
+              setRetry={setRetry}
+              pool={pool}
+              trailer={trailer}
+              watchButton={watchButton}
+            />
           </>
         )}
       </main>
     </div>
+  );
+}
+
+
+function Sidebar({ view, watched, sourceText, navigate }: { view: CinemaView, watched: string[], sourceText: string, navigate: (dest: CinemaView) => void }) {
+  return (
+    <aside className="ns-sidebar">
+      <a
+        className="ns-brand"
+        href="#ns-main"
+        onClick={() => navigate("lobby")}
+      >
+        <img src={`${art}ghost.webp`} alt="" />
+        <span>
+          now
+          <br />
+          screaming<span className="ns-brand-dot">.</span>
+        </span>
+      </a>
+      <nav aria-label="Tracker navigation">
+        {(
+          [
+            ["lobby", "lamp", "Cinema lobby"],
+            ["theaters", "ticket", "Theaters & coming soon"],
+            ["home", "tv", "Watch at home"],
+            ["watched", "check", "Watched"],
+          ] as const
+        ).map(([destination, icon, label]) => (
+          <button
+            key={destination}
+            className={`ns-nav ${view === destination ? "active" : ""}`}
+            data-view={destination}
+            aria-pressed={view === destination}
+            onClick={() => navigate(destination)}
+          >
+            <Icon name={icon} />
+            <span className="ns-nav-text">{label}</span>
+            {destination === "watched" && (
+              <span id="ns-count">{watched.length}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+      <div className="ns-sidebar-note">
+        <span className="ns-spark">✦</span>
+        <p>
+          A little less forgetting.
+          <br />A little more screaming.
+        </p>
+      </div>
+      <p className="ns-source">
+        U.S. horror releases
+        <br />
+        <span aria-live="polite">{sourceText}</span>
+      </p>
+    </aside>
+  );
+}
+
+function Topbar({ themeDestination }: { themeDestination: string }) {
+  return (
+    <div className="ns-topbar">
+      <span>From theaters to your couch</span>
+      <button
+        id="ns-theme"
+        aria-label={`Switch to ${themeDestination} mode`}
+        onClick={() => writeStorage("ns:theme", themeDestination)}
+      >
+        <Icon name={themeDestination === "light" ? "sun" : "moon"} />
+        <span>{themeDestination === "light" ? "Light" : "Dark"} mode</span>
+      </button>
+    </div>
+  );
+}
+
+function Lobby({ movies, lobbyMovie, pickMovie, navigate, openMovie }: {
+  movies: Movie[],
+  lobbyMovie: Movie | undefined,
+  pickMovie: () => void,
+  navigate: (dest: CinemaView, stage?: string) => void,
+  openMovie: (movie: Movie) => void
+}) {
+  return (
+    <section
+      className="ns-lobby ns-cinema-lobby"
+      aria-label="Cinema lobby"
+    >
+      <div className="ns-lobby-heading">
+        <h1>Lobby under construction.</h1>
+      </div>
+      <nav className="ns-overhead-board" aria-label="Choose a movie view">
+        <button onClick={() => navigate("theaters", "theaters")}>
+          <span>Now showing</span>
+          <strong>In theaters</strong>
+          <small>Make a night of it</small>
+        </button>
+        <button onClick={() => navigate("theaters", "soon")}>
+          <span>Next attractions</span>
+          <strong>Coming soon</strong>
+          <small>Save the date</small>
+        </button>
+        <button onClick={() => navigate("home")}>
+          <span>Tonight at home</span>
+          <strong>Watch at home</strong>
+          <small>Streaming, rent & buy</small>
+        </button>
+      </nav>
+      <div className="ns-lobby-gallery">
+        <div className="ns-booth">
+          <img
+            src={`${art}cinema-lobby-oversized-smile.webp`}
+            alt="A monochrome paper-doll usher taped over a colorful vintage cinema lobby"
+          />
+          <button
+            className="ns-booth-bell"
+            onClick={pickMovie}
+            disabled={!movies.length}
+            aria-label="Ring the service bell to pick a movie"
+          >
+            <span className="ns-sr-only">Pick a movie</span>
+            <span
+              className="ns-craft-tape ns-craft-tape-b"
+              aria-hidden="true"
+            />
+            <span
+              className="ns-craft-tape ns-craft-tape-c"
+              aria-hidden="true"
+            />
+          </button>
+          <img
+            src={`${art}cinema-lobby-oversized-smile-fg.webp`}
+            className="ns-booth-fg"
+            alt=""
+          />
+        </div>
+        {lobbyMovie && (
+          <>
+            <button
+              className="ns-poster-marquee"
+              onClick={() => openMovie(lobbyMovie)}
+              aria-label={`View ${lobbyMovie.title} release and trailer`}
+            >
+              <span
+                className="ns-craft-tape ns-craft-tape-a"
+                aria-hidden="true"
+              />
+              <span
+                className="ns-craft-tape ns-craft-tape-d"
+                aria-hidden="true"
+              />
+              <Poster movie={lobbyMovie} className="ns-live-poster" />
+              <div className="ns-movie-slip" aria-hidden="true" />
+            </button>
+            <span className="ns-fallen-date">
+              <span className="ns-sr-only">
+                {lobbyMovie.title} theatrical release:{" "}
+              </span>
+              <span className="ns-release-value">
+                {lobbyMovie.date} <small>{lobbyMovie.year}</small>
+              </span>
+            </span>
+          </>
+        )}
+      </div>
+      <div className="ns-lobby-bottom">
+        <div className="ns-lobby-bell">
+          <button onClick={pickMovie} disabled={!movies.length}>
+            <Icon name="bell" />
+            Pick a movie for me
+          </button>
+          <span>Or ring the brass bell at the box office.</span>
+        </div>
+        <p className="ns-lobby-footnote">
+          Dates and availability for U.S. releases.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function FeatureTicket({ feature, homeTicket, resolveTrailer, ticketProvider }: {
+  feature: Movie,
+  homeTicket: boolean,
+  resolveTrailer: (movie: Movie) => string | undefined,
+  ticketProvider: string
+}) {
+  return (
+    <header className="ns-header" aria-label="Featured movie ticket">
+      <div className="ns-ticket-main">
+        {feature.backdrop && (
+          <img
+            className="ns-backdrop"
+            src={feature.backdrop}
+            alt=""
+          />
+        )}
+        <div className="ns-ticket-print">
+          <div className="ns-ticket-masthead">
+            <img
+              className="ns-ticket-mascot"
+              src={`${art}${homeTicket ? "now-screaming-cozy-ghost.webp" : "ghost.webp"}`}
+              alt={
+                homeTicket
+                  ? "Cozy ghost in a blanket with popcorn"
+                  : "Ghost with a calendar and ticket"
+              }
+            />
+            <div>
+              <span className="ns-cinema-label">
+                {homeTicket ? "Movie night" : "Cinema"}
+              </span>
+              <span className="ns-ticket-label">Ticket</span>
+            </div>
+            {resolveTrailer(feature) && (
+              <a
+                className="ns-ticket-trailer"
+                href={resolveTrailer(feature)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon name="play" />
+                <span>Trailer</span>
+              </a>
+            )}
+          </div>
+          <h1 className="ns-movie-heading">{feature.title}</h1>
+        </div>
+      </div>
+      <div className="ns-header-stub">
+        <div className="ns-stub-print">
+          <span className="ns-stub-admission">
+            {homeTicket ? "Stay in" : "Admit one"}
+          </span>
+          <div className="ns-stub-details">
+            {homeTicket ? (
+              <>
+                <span>Watch on</span>
+                <strong
+                  className={`ns-stub-service ${ticketProvider.length > 18 ? "ns-long-service" : ""}`}
+                >
+                  {ticketProvider}
+                </strong>
+                <span>
+                  {rentalOnly(feature)
+                    ? "Rent or buy"
+                    : "Subscription streaming"}
+                </span>
+              </>
+            ) : (
+              <>
+                <strong className="ns-stub-day">
+                  {feature.date.split(" ")[1]}
+                </strong>
+                <span className="ns-stub-month">
+                  {feature.date.split(" ")[0]} {feature.year}
+                </span>
+                <span>Theatrical release</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Tracker({
+  view, query, setQuery, options, filter, setFilter, setChosenTitle,
+  sourceStatus, setSourceStatus, setRetry, pool, trailer, watchButton
+}: {
+  view: CinemaView,
+  query: string,
+  setQuery: (q: string) => void,
+  options: string[][],
+  filter: string,
+  setFilter: (f: string) => void,
+  setChosenTitle: (t: string | null) => void,
+  sourceStatus: string,
+  setSourceStatus: (s: "loading" | "ok" | "error") => void,
+  setRetry: React.Dispatch<React.SetStateAction<number>>,
+  pool: Movie[],
+  trailer: (movie: Movie) => React.ReactNode,
+  watchButton: (movie: Movie) => React.ReactNode
+}) {
+  return (
+    <section className="ns-tracker" aria-label="Release tracker">
+      <div className="ns-tracker-heading">
+        <h2 id="ns-list-heading">
+          {view === "home"
+            ? "Find tonight’s movie"
+            : view === "watched"
+              ? "Already survived"
+              : "Coming to a theater near you"}
+        </h2>
+        <label className="ns-search">
+          <Icon name="search" />
+          <input
+            id="ns-search-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Search releases"
+            placeholder="Find your next scare"
+          />
+        </label>
+      </div>
+      <div
+        className="ns-filters"
+        role="group"
+        aria-label="Release stage"
+      >
+        {options.map(([stage, label]) => (
+          <button
+            key={stage}
+            aria-pressed={filter === stage}
+            onClick={() => {
+              setFilter(stage);
+              setChosenTitle(null);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {sourceStatus === "error" && (
+        <p className="ns-error" role="status">
+          The feed went dark. This is the saved catalogue.
+          <button
+            onClick={() => {
+              setSourceStatus("loading");
+              setRetry((value) => value + 1);
+            }}
+          >
+            Try again
+          </button>
+        </p>
+      )}
+      <div
+        id="ns-rows"
+        className={view === "home" ? "ns-poster-grid" : ""}
+        aria-label="Movies"
+      >
+        {pool.map((movie, index) =>
+          view === "home" ? (
+            <article
+              className="ns-poster-card"
+              key={movie.tmdbId ?? movie.title}
+            >
+              <Poster movie={movie} className="ns-card-art" />
+              <h3>{movie.title}</h3>
+              <div className="ns-card-status">
+                <strong>
+                  {rentalOnly(movie)
+                    ? "Rent or buy"
+                    : "Subscription streaming"}
+                </strong>
+                <span className="ns-service ns-provider-list">
+                  {providers(movie).map((provider) => (
+                    <span className="ns-provider-name" key={provider}>
+                      {provider}
+                    </span>
+                  ))}
+                </span>
+              </div>
+              <div className="ns-card-actions">
+                {trailer(movie)}
+                {watchButton(movie)}
+              </div>
+            </article>
+          ) : (
+            <Fragment key={movie.tmdbId ?? movie.title}>
+              {(!index ||
+                pool[index - 1].month !== movie.month ||
+                pool[index - 1].year !== movie.year) && (
+                <h3 className="ns-month-label">
+                  {new Date(movieTime(movie)).toLocaleString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </h3>
+              )}
+              <article className="ns-row">
+                <time className="ns-date">
+                  <strong>{movie.date.split(" ")[1]}</strong>
+                  <span>{movie.date.split(" ")[0]}</span>
+                </time>
+                <Poster movie={movie} className="ns-poster" />
+                <div className="ns-film">
+                  <h3>{movie.title}</h3>
+                  <p>{movie.genre}</p>
+                </div>
+                <span className="ns-status">{movie.availability}</span>
+                <div className="ns-actions">
+                  {trailer(movie)}
+                  {watchButton(movie)}
+                </div>
+              </article>
+            </Fragment>
+          ),
+        )}
+        {!pool.length && (
+          <p className="ns-empty">
+            {query
+              ? "No movies match that search."
+              : view === "watched"
+                ? "Nothing marked watched yet. Save the movies you’ve survived."
+                : "No movies in this view yet. Try another filter."}
+          </p>
+        )}
+      </div>
+      <footer className="ns-footer">
+        <span>Good movies. Bad dreams.</span>
+        <span>Movie data: TMDb · U.S. availability: Watchmode</span>
+      </footer>
+    </section>
   );
 }

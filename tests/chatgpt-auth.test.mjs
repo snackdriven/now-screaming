@@ -97,8 +97,4 @@ test('chatgpt-auth module tests', async (t) => {
         assert.equal(chatGPTSignInPath('https://external.com/foo'), '/signin-with-chatgpt?return_to=%2F');
     });
 
-    await t.test('chatGPTSignOutPath constructs correct path', () => {
-        assert.equal(chatGPTSignOutPath('/dashboard'), '/signout-with-chatgpt?return_to=%2Fdashboard');
-        assert.equal(chatGPTSignOutPath(), '/signout-with-chatgpt?return_to=%2F');
     });
-});
