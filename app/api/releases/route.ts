@@ -69,12 +69,9 @@ async function getHomeAvailability(tmdbId: number, apiKey: string) {
   };
 }
 
-export async function GET() {
-  const apiKey = process.env.TMDB_API_KEY;
-  const watchmodeApiKey = process.env.WATCHMODE_API_KEY;
-  if (!apiKey) return Response.json({ error: "Movie source is not configured" }, { status: 503 });
 
-  const today = new Date().toISOString().slice(0, 10);
+
+function getDiscoverQueries(apiKey: string, today: string) {
   const recentStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const upcomingStart = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const nextYear = new Date(Date.now() + 370 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -98,6 +95,64 @@ export async function GET() {
     "primary_release_date.gte": upcomingStart,
     "primary_release_date.lte": nextYear,
   });
+  return { recentQuery, upcomingQuery };
+}
+
+function organizeMovies(recentResults: TmdbMovie[], upcomingResults: TmdbMovie[], today: string) {
+  const recentMovies = recentResults
+    .filter((movie) => movie.release_date <= today)
+    .slice(0, 12)
+    .sort((a, b) => b.release_date.localeCompare(a.release_date));
+  const upcomingMovies = upcomingResults
+    .filter((movie) => movie.release_date > today)
+    .slice(0, 12)
+    .sort((a, b) => a.release_date.localeCompare(b.release_date));
+  return [...recentMovies, ...upcomingMovies].filter((movie, index, all) =>
+    all.findIndex((candidate) => candidate.id === movie.id) === index,
+  );
+}
+
+async function formatReleases(movies: TmdbMovie[], today: string, nowPlayingMovieIds: Set<number>, watchmodeApiKey: string | undefined) {
+  const releases = [];
+  for (const [index, movie] of movies.entries()) {
+    const [month, day] = displayDate(movie.release_date).split(" ");
+    const genre = movie.genre_ids.map((id) => genreNames[id]).find(Boolean) ?? "Horror";
+    const releaseIsPast = movie.release_date <= today;
+    const home = releaseIsPast && watchmodeApiKey ? await getHomeAvailability(movie.id, watchmodeApiKey) : null;
+    const stage = home
+      ? "streaming" as const
+      : nowPlayingMovieIds.has(movie.id)
+        ? "theaters" as const
+        : releaseIsPast
+          ? "released" as const
+          : "soon" as const;
+    const release = {
+      title: movie.title,
+      date: `${month} ${day}`,
+      month: month.toUpperCase(),
+      year: movie.release_date.slice(0, 4),
+      genre,
+      stage,
+      availability: home?.availability ?? (stage === "theaters" ? "In theaters" : stage === "released" ? "Recently released" : "Theatrical date"),
+      platform: home?.platform,
+      note: shortNote(movie.overview),
+      color: ["violet", "blood", "acid", "ember", "sand"][index % 5],
+      poster: movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : undefined,
+      backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : undefined,
+      tmdbId: movie.id,
+    };
+    releases.push(release);
+  }
+  return releases;
+}
+
+export async function GET() {
+  const apiKey = process.env.TMDB_API_KEY;
+  const watchmodeApiKey = process.env.WATCHMODE_API_KEY;
+  if (!apiKey) return Response.json({ error: "Movie source is not configured" }, { status: 503 });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { recentQuery, upcomingQuery } = getDiscoverQueries(apiKey, today);
 
   try {
     const [recentResponse, upcomingResponse, nowPlayingMovieIds] = await Promise.all([
@@ -116,47 +171,10 @@ export async function GET() {
       recentResponse.json() as Promise<{ results: TmdbMovie[] }>,
       upcomingResponse.json() as Promise<{ results: TmdbMovie[] }>,
     ]);
-    const recentMovies = recentData.results
-      .filter((movie) => movie.release_date <= today)
-      .slice(0, 12)
-      .sort((a, b) => b.release_date.localeCompare(a.release_date));
-    const upcomingMovies = upcomingData.results
-      .filter((movie) => movie.release_date > today)
-      .slice(0, 12)
-      .sort((a, b) => a.release_date.localeCompare(b.release_date));
-    const movies = [...recentMovies, ...upcomingMovies].filter((movie, index, all) =>
-      all.findIndex((candidate) => candidate.id === movie.id) === index,
-    );
-    const releases = [];
-    for (const [index, movie] of movies.entries()) {
-      const [month, day] = displayDate(movie.release_date).split(" ");
-      const genre = movie.genre_ids.map((id) => genreNames[id]).find(Boolean) ?? "Horror";
-      const releaseIsPast = movie.release_date <= today;
-      const home = releaseIsPast && watchmodeApiKey ? await getHomeAvailability(movie.id, watchmodeApiKey) : null;
-      const stage = home
-        ? "streaming" as const
-        : nowPlayingMovieIds.has(movie.id)
-          ? "theaters" as const
-          : releaseIsPast
-            ? "released" as const
-            : "soon" as const;
-      const release = {
-        title: movie.title,
-        date: `${month} ${day}`,
-        month: month.toUpperCase(),
-        year: movie.release_date.slice(0, 4),
-        genre,
-        stage,
-        availability: home?.availability ?? (stage === "theaters" ? "In theaters" : stage === "released" ? "Recently released" : "Theatrical date"),
-        platform: home?.platform,
-        note: shortNote(movie.overview),
-        color: ["violet", "blood", "acid", "ember", "sand"][index % 5],
-        poster: movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : undefined,
-        backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : undefined,
-        tmdbId: movie.id,
-      };
-      releases.push(release);
-    }
+
+    const movies = organizeMovies(recentData.results, upcomingData.results, today);
+    const releases = await formatReleases(movies, today, nowPlayingMovieIds, watchmodeApiKey);
+
     return Response.json({ releases, updatedAt: new Date().toISOString() }, {
       headers: { "Cache-Control": "public, s-maxage=21600, stale-while-revalidate=86400" },
     });
