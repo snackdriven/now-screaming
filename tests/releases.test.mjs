@@ -89,6 +89,19 @@ test("stageCounts returns accurate tallies", () => {
   });
 });
 
+test("stageCounts handles empty, repeated, and unexpected runtime stages", () => {
+  assert.deepEqual(stageCounts([]), {
+    all: 0, theaters: 0, streaming: 0, released: 0, soon: 0,
+  });
+  assert.deepEqual(stageCounts([
+    movie("A", "theaters"), movie("B", "theaters"),
+    movie("C", "streaming"), movie("D", "released"), movie("E", "soon"),
+    movie("F", "unknown"),
+  ]), {
+    all: 6, theaters: 2, streaming: 1, released: 1, soon: 1,
+  });
+});
+
 test("applyStage filters by stage", () => {
   assert.equal(applyStage(films, "all").length, 4);
   assert.deepEqual(applyStage(films, "theaters").map(m => m.title), ["Smile 2"]);
