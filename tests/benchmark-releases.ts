@@ -1,4 +1,6 @@
-import { Movie } from '../app/releases.js';
+import assert from 'node:assert/strict';
+import { stageCounts } from '../app/releases.ts';
+import type { Movie } from '../app/releases.ts';
 
 function oldStageCounts(pool: Movie[]) {
   return {
@@ -8,20 +10,6 @@ function oldStageCounts(pool: Movie[]) {
     released: pool.filter((movie) => movie.stage === "released").length,
     soon: pool.filter((movie) => movie.stage === "soon").length,
   };
-}
-
-function newStageCounts(pool: Movie[]) {
-  const counts = {
-    all: pool.length,
-    theaters: 0,
-    streaming: 0,
-    released: 0,
-    soon: 0,
-  };
-  for (const movie of pool) {
-    counts[movie.stage]++;
-  }
-  return counts;
 }
 
 // Generate data
@@ -44,8 +32,10 @@ for (let i = 0; i < 100000; i++) {
 // Warmup
 for (let i = 0; i < 100; i++) {
   oldStageCounts(pool);
-  newStageCounts(pool);
+  stageCounts(pool);
 }
+
+assert.deepEqual(stageCounts(pool), oldStageCounts(pool));
 
 // Benchmark Old
 const startOld = performance.now();
@@ -57,7 +47,7 @@ const timeOld = performance.now() - startOld;
 // Benchmark New
 const startNew = performance.now();
 for (let i = 0; i < 100; i++) {
-  newStageCounts(pool);
+  stageCounts(pool);
 }
 const timeNew = performance.now() - startNew;
 

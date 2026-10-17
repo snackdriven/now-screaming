@@ -40,13 +40,22 @@ export function releasePool({ movies, query, showWatched, watched, featureTitle 
 }
 
 export function stageCounts(pool: Movie[]) {
-  return {
+  const counts = {
     all: pool.length,
-    theaters: pool.filter((movie) => movie.stage === "theaters").length,
-    streaming: pool.filter((movie) => movie.stage === "streaming").length,
-    released: pool.filter((movie) => movie.stage === "released").length,
-    soon: pool.filter((movie) => movie.stage === "soon").length,
+    theaters: 0,
+    streaming: 0,
+    released: 0,
+    soon: 0,
   };
+  for (const movie of pool) {
+    switch (movie.stage) {
+      case "theaters": counts.theaters++; break;
+      case "streaming": counts.streaming++; break;
+      case "released": counts.released++; break;
+      case "soon": counts.soon++; break;
+    }
+  }
+  return counts;
 }
 
 export function applyStage(pool: Movie[], active: StageFilter): Movie[] {
