@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#241a20" />
+    <meta name="description" content="That page has gone missing from the Now Screaming cinema. Return to the horror release tracker." />
+    <title>Lost in the Lobby · Now Screaming</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        color: #f8f0e5;
+        background: #241a20;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        min-height: 100svh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: clamp(20px, 5vw, 64px);
+        background:
+          radial-gradient(ellipse at 50% 38%, rgba(125, 55, 65, .36), transparent 62%),
+          repeating-linear-gradient(90deg, transparent 0 70px, rgba(9, 7, 9, .09) 71px 75px),
+          linear-gradient(115deg, #3a242d, #241a20 52%, #302027);
+      }
+      main { width: min(100%, 960px); }
+      .kicker {
+        margin: 0 0 18px;
+        color: #dbbda5;
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .2em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+      .lobby-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, .92fr);
+        align-items: center;
+        filter: drop-shadow(0 25px 35px rgba(0, 0, 0, .42));
+      }
+      .usher {
+        position: relative;
+        z-index: 1;
+        min-height: 470px;
+        overflow: hidden;
+        background: #382b28;
+        border: 1px solid rgba(238, 218, 190, .18);
+        box-shadow: 0 0 0 7px rgba(13, 10, 11, .22), inset 0 0 35px #171213;
+      }
+      .usher img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 470px;
+        object-fit: cover;
+        object-position: 31% center;
+        filter: saturate(.72) contrast(1.04);
+      }
+      .notice {
+        position: relative;
+        z-index: 2;
+        margin-left: -38px;
+        padding: clamp(28px, 5vw, 48px) clamp(25px, 4vw, 42px) 36px;
+        color: #30252a;
+        background:
+          repeating-linear-gradient(0deg, transparent 0 27px, rgba(85, 63, 55, .045) 28px 29px),
+          linear-gradient(110deg, #f6eddd, #e4d7c0 90%);
+        clip-path: polygon(1% 0, 98% 1%, 100% 4%, 99% 9%, 100% 15%, 98.8% 22%, 100% 31%, 98.8% 39%, 100% 47%, 98.7% 56%, 100% 64%, 98.7% 73%, 100% 82%, 98.8% 90%, 100% 97%, 97% 100%, 88% 98.8%, 80% 100%, 70% 98.8%, 60% 100%, 49% 98.7%, 38% 100%, 28% 98.8%, 18% 100%, 9% 98.7%, 0 100%, 1.3% 92%, 0 83%, 1.2% 74%, 0 64%, 1.2% 54%, 0 43%, 1.4% 33%, 0 22%, 1.2% 12%, 0 5%);
+        transform: rotate(1.1deg);
+      }
+      .tape {
+        position: absolute;
+        top: -8px;
+        left: 50%;
+        width: 94px;
+        height: 25px;
+        border: 1px solid rgba(255, 255, 255, .4);
+        background: linear-gradient(175deg, rgba(255,255,255,.55), rgba(221,211,188,.28) 48%, rgba(255,255,255,.4));
+        box-shadow: 0 2px 3px rgba(39, 30, 26, .14);
+        transform: translateX(-50%) rotate(-3deg);
+      }
+      .eyebrow {
+        margin: 0 0 12px;
+        color: #8f3f4b;
+        font-size: .7rem;
+        font-weight: 800;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(2.4rem, 5vw, 4rem);
+        font-weight: 600;
+        line-height: .96;
+        letter-spacing: -.045em;
+      }
+      .rule { width: 52px; height: 3px; margin: 22px 0; background: #9c4057; }
+      .message {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(1.2rem, 2vw, 1.45rem);
+        line-height: 1.35;
+      }
+      .detail { margin: 14px 0 27px; color: #574951; font-size: .98rem; line-height: 1.6; }
+      .return-link {
+        display: inline-flex;
+        min-height: 50px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px 18px;
+        color: #fffaf2;
+        background: #873d4a;
+        border: 1px solid #71303d;
+        box-shadow: 0 3px 0 #562832;
+        font-size: .94rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background-color .15s ease, transform .15s ease;
+      }
+      .return-link:hover { background: #71303d; transform: translateY(-1px); }
+      .return-link:focus-visible { outline: 3px solid #30252a; outline-offset: 4px; }
+      .return-link span { font-size: 1.2rem; line-height: 1; }
+      .footnote {
+        margin: 23px 0 0;
+        color: #75666b;
+        font-size: .72rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      @media (max-width: 700px) {
+        body { padding: 25px 18px 32px; }
+        .kicker { margin-bottom: 15px; }
+        .lobby-card { grid-template-columns: 1fr; }
+        .usher { min-height: 0; height: clamp(210px, 58vw, 330px); }
+        .usher img { min-height: 0; object-position: 28% 43%; }
+        .notice { margin: -25px 10px 0; padding: 33px 25px 29px; transform: rotate(.5deg); }
+        .detail { margin-bottom: 22px; }
+        .return-link { width: 100%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main aria-labelledby="lost-title">
+      <p class="kicker">Now Screaming · Box Office Notice</p>
+      <div class="lobby-card">
+        <figure class="usher">
+          <img src="/design/cinema-lobby-oversized-smile.webp" alt="A grayscale paper usher waits at the warmly lit cinema lobby box office." />
+        </figure>
+        <section class="notice" aria-label="Missing page notice">
+          <span class="tape" aria-hidden="true"></span>
+          <p class="eyebrow">Lost property · No. 404</p>
+          <h1 id="lost-title">Lost in the Lobby</h1>
+          <div class="rule" aria-hidden="true"></div>
+          <p class="message">The screen has gone dark.</p>
+          <p class="detail">We couldn’t find that page. It may have slipped off the bill, but the show is still on.</p>
+          <a class="return-link" href="/">Return to the tracker <span aria-hidden="true">→</span></a>
+          <p class="footnote">Please keep your ticket. Mind the step.</p>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

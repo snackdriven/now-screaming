@@ -19,9 +19,24 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     });
     if (!response.ok) throw new Error("TMDb request failed");
     const data = await response.json() as { results: Video[] };
-    const trailer = data.results.find((video) => video.site === "YouTube" && video.type === "Trailer" && video.official)
-      ?? data.results.find((video) => video.site === "YouTube" && video.type === "Trailer")
-      ?? data.results.find((video) => video.site === "YouTube" && video.type === "Teaser");
+    let trailer: Video | undefined;
+    let bestScore = 0;
+    for (const video of data.results) {
+      if (video.site !== "YouTube") continue;
+
+      let score = 0;
+      if (video.type === "Trailer") {
+        score = video.official ? 3 : 2;
+      } else if (video.type === "Teaser") {
+        score = 1;
+      }
+
+      if (score > bestScore) {
+        trailer = video;
+        bestScore = score;
+        if (bestScore === 3) break;
+      }
+    }
     return Response.redirect(trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : search, 302);
   } catch {
     return Response.redirect(search, 302);
