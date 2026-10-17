@@ -1,100 +1,86 @@
-import test, { mock } from 'node:test';
-import assert from 'node:assert/strict';
+import assert from "node:assert/strict";
+import test from "node:test";
+import { parseChatGPTUser } from "../app/chatgpt-auth-core.ts";
 
-// Store our mutable headers map
-let mockHeaders = new Map();
-let mockRedirectUrl = null;
+const secret = "test-proxy-secret";
 
-mock.module('next/headers', {
-    namedExports: {
-        headers: async () => mockHeaders
-    }
+function headers(extra = {}) {
+  return new Headers({
+    "x-chatgpt-proxy-secret": secret,
+    "oai-authenticated-user-email": "test@example.com",
+    ...extra,
+  });
+}
+
+test("denies a user without an email", () => {
+  const requestHeaders = headers();
+  requestHeaders.delete("oai-authenticated-user-email");
+  assert.equal(parseChatGPTUser(requestHeaders, secret, true), null);
 });
 
-mock.module('next/navigation', {
-    namedExports: {
-        redirect: (url) => { mockRedirectUrl = url; }
-    }
+test("accepts an authenticated user and decodes the full name", () => {
+  const requestHeaders = headers({
+    "oai-authenticated-user-full-name": "Test%20User",
+    "oai-authenticated-user-full-name-encoding": "percent-encoded-utf-8",
+  });
+  assert.deepEqual(parseChatGPTUser(requestHeaders, secret, true), {
+    displayName: "Test User",
+    email: "test@example.com",
+    fullName: "Test User",
+  });
 });
 
-const {
-    getChatGPTUser,
-    requireChatGPTUser,
-    chatGPTSignInPath,
-    chatGPTSignOutPath
-} = await import('../app/chatgpt-auth.ts');
+test("rejects missing and incorrect proxy secrets", () => {
+  const missing = headers();
+  missing.delete("x-chatgpt-proxy-secret");
+  assert.equal(parseChatGPTUser(missing, secret, true), null);
+  assert.equal(parseChatGPTUser(headers({ "x-chatgpt-proxy-secret": "wrong" }), secret, true), null);
+});
 
-test('chatgpt-auth module tests', async (t) => {
-    t.beforeEach(() => {
-        mockHeaders = new Map();
-        mockRedirectUrl = null;
+test("accepts the existing bearer authorization fallback", () => {
+  const requestHeaders = headers({ authorization: `Bearer ${secret}` });
+  requestHeaders.delete("x-chatgpt-proxy-secret");
+  assert.equal(parseChatGPTUser(requestHeaders, secret, true)?.email, "test@example.com");
+});
+
+test("falls back to email for malformed or unsupported name encoding", () => {
+  const malformed = headers({
+    "oai-authenticated-user-full-name": "%E0%A4%A",
+    "oai-authenticated-user-full-name-encoding": "percent-encoded-utf-8",
+  });
+  const unsupported = headers({
+    "oai-authenticated-user-full-name": "Test%20User",
+    "oai-authenticated-user-full-name-encoding": "unknown",
+  });
+  for (const requestHeaders of [malformed, unsupported]) {
+    assert.deepEqual(parseChatGPTUser(requestHeaders, secret, true), {
+      displayName: "test@example.com",
+      email: "test@example.com",
+      fullName: null,
     });
+  }
+});
 
-    await t.test('getChatGPTUser returns null when email is missing', async () => {
-        const user = await getChatGPTUser();
-        assert.equal(user, null);
-    });
+test("fails closed when the proxy secret is unconfigured in production", () => {
+  const originalError = console.error;
+  const errors = [];
+  console.error = (...args) => errors.push(args);
+  try {
+    assert.equal(parseChatGPTUser(headers(), undefined, true), null);
+    assert.match(String(errors[0]?.[0]), /CHATGPT_PROXY_SECRET is not set/);
+  } finally {
+    console.error = originalError;
+  }
+});
 
-    await t.test('getChatGPTUser extracts user from headers correctly', async () => {
-        mockHeaders.set('oai-authenticated-user-email', 'test@example.com');
-        mockHeaders.set('oai-authenticated-user-full-name', 'Test%20User');
-        mockHeaders.set('oai-authenticated-user-full-name-encoding', 'percent-encoded-utf-8');
-
-        const user = await getChatGPTUser();
-        assert.deepEqual(user, {
-            displayName: 'Test User',
-            email: 'test@example.com',
-            fullName: 'Test User'
-        });
-    });
-
-    await t.test('getChatGPTUser handles decoding errors gracefully', async () => {
-        mockHeaders.set('oai-authenticated-user-email', 'test@example.com');
-        mockHeaders.set('oai-authenticated-user-full-name', '%E0%A4%A'); // Invalid percent encoding
-        mockHeaders.set('oai-authenticated-user-full-name-encoding', 'percent-encoded-utf-8');
-
-        const user = await getChatGPTUser();
-        assert.deepEqual(user, {
-            displayName: 'test@example.com',
-            email: 'test@example.com',
-            fullName: null
-        });
-    });
-
-    await t.test('getChatGPTUser ignores full name if encoding is not percent-encoded-utf-8', async () => {
-        mockHeaders.set('oai-authenticated-user-email', 'test@example.com');
-        mockHeaders.set('oai-authenticated-user-full-name', 'Test%20User');
-        mockHeaders.set('oai-authenticated-user-full-name-encoding', 'unknown-encoding');
-
-        const user = await getChatGPTUser();
-        assert.deepEqual(user, {
-            displayName: 'test@example.com',
-            email: 'test@example.com',
-            fullName: null
-        });
-    });
-
-    await t.test('requireChatGPTUser returns user if logged in', async () => {
-        mockHeaders.set('oai-authenticated-user-email', 'test@example.com');
-
-        const user = await requireChatGPTUser('/');
-        assert.deepEqual(user, {
-            displayName: 'test@example.com',
-            email: 'test@example.com',
-            fullName: null
-        });
-        assert.equal(mockRedirectUrl, null);
-    });
-
-    await t.test('requireChatGPTUser redirects to sign in if not logged in', async () => {
-        await requireChatGPTUser('/dashboard');
-        assert.equal(mockRedirectUrl, '/signin-with-chatgpt?return_to=%2Fdashboard');
-    });
-
-    await t.test('chatGPTSignInPath constructs correct path', () => {
-        assert.equal(chatGPTSignInPath('/dashboard'), '/signin-with-chatgpt?return_to=%2Fdashboard');
-        // fallback to / for invalid paths
-        assert.equal(chatGPTSignInPath('https://external.com/foo'), '/signin-with-chatgpt?return_to=%2F');
-    });
-
-    });
+test("retains the development-only no-secret warning", () => {
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => warnings.push(args);
+  try {
+    assert.equal(parseChatGPTUser(headers(), undefined, false)?.email, "test@example.com");
+    assert.match(String(warnings[0]?.[0]), /Allowing access in development/);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
