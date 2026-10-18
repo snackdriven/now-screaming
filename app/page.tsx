@@ -169,16 +169,18 @@ export default function Home({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const pool = useMemo(
-    () => cinemaPool(movies, view, filter, query, watched),
-    [movies, view, filter, query, watched],
-  );
   const feature = selectFeature(
     movies,
     view === "watched" ? lastView : view,
     filter,
     chosenTitle,
   );
+  const pool = useMemo(() => {
+    const basePool = cinemaPool(movies, view, filter, query, watched);
+    return view === "watched" || !feature
+      ? basePool
+      : basePool.filter((movie) => movie.title !== feature.title);
+  }, [movies, view, filter, query, watched, feature]);
   const lobbyMovie = selectFeature(movies, "theaters", "soon");
   const homeTicket = feature?.stage === "streaming";
   const ticketProvider = feature
