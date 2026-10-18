@@ -9,6 +9,8 @@ const args = [
   "tests/watched-filter.test.mjs",
   "tests/cinema.test.mjs",
   "tests/releases.test.mjs",
+  "tests/releases-api.test.mjs",
+  "tests/route.test.mjs",
   "tests/chatgpt-auth.test.mjs"
 ];
 
