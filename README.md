@@ -86,3 +86,7 @@ npm test                                          # builds, then checks the rend
 ```
 
 The watched list uses the existing `ns:watched` localStorage key, so saved movies carry into the redesign and survive browser restarts until site storage is cleared. Marks are keyed on title, so an upstream title change can lose its mark. The theme uses `ns:theme`. If the feed cannot load, the app identifies and displays the saved catalogue in `app/fallback-releases.json` and offers a retry. Public artwork is stored as WebP in both build targets' `design/` asset directories.
+
+## Commits and releases
+
+See [RELEASE.md](RELEASE.md) for Commitizen commands, SemVer and changelog maintenance.
