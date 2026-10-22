@@ -119,7 +119,7 @@ function organizeMovies(recentResults: TmdbMovie[], upcomingResults: TmdbMovie[]
     .filter((movie) => movie.release_date > today)
     .slice(0, 12)
     .sort((a, b) => a.release_date.localeCompare(b.release_date));
-  const map = new Map();
+  const map = new Map<number, TmdbMovie>();
   for (const movie of [...recentMovies, ...upcomingMovies]) {
     if (!map.has(movie.id)) {
       map.set(movie.id, movie);
