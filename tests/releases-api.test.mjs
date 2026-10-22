@@ -27,7 +27,7 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
   const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const mockFetch = mock.fn(async (urlStr, init) => {
+  const mockFetch = mock.fn(async (urlStr) => {
     const url = new URL(urlStr);
 
     // TMDb Discover Movie API
