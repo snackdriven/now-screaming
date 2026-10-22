@@ -155,7 +155,11 @@ async function formatReleases(movies: TmdbMovie[], today: string, nowPlayingMovi
   return releases;
 }
 
-export async function GET() {
+import { parseChatGPTUser } from "../../chatgpt-auth-core.ts";
+
+export async function GET(request: Request) {
+  const user = parseChatGPTUser(request.headers, process.env.CHATGPT_PROXY_SECRET, process.env.NODE_ENV === "production");
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const apiKey = process.env.TMDB_API_KEY;
   const watchmodeApiKey = process.env.WATCHMODE_API_KEY;
   if (!apiKey) return Response.json({ error: "Movie source is not configured" }, { status: 503 });

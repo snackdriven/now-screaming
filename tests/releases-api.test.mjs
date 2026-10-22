@@ -6,7 +6,7 @@ test("GET /api/releases handles missing TMDB API key", async () => {
   const originalKey = process.env.TMDB_API_KEY;
   delete process.env.TMDB_API_KEY;
 
-  const response = await GET();
+  const response = await GET({ headers: new Headers({ "oai-authenticated-user-email": "test@example.com", "x-chatgpt-proxy-secret": process.env.CHATGPT_PROXY_SECRET || "" }) });
   assert.equal(response.status, 503);
   const data = await response.json();
   assert.equal(data.error, "Movie source is not configured");
@@ -27,7 +27,7 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
   const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const mockFetch = mock.fn(async (urlStr, init) => {
+  const mockFetch = mock.fn(async (urlStr) => {
     const url = new URL(urlStr);
 
     // TMDb Discover Movie API
@@ -105,7 +105,7 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
   mock.method(console, "error", () => {});
 
   try {
-    const response = await GET();
+    const response = await GET({ headers: new Headers({ "oai-authenticated-user-email": "test@example.com", "x-chatgpt-proxy-secret": process.env.CHATGPT_PROXY_SECRET || "" }) });
     assert.equal(response.status, 200);
     const data = await response.json();
 
@@ -159,7 +159,7 @@ test("GET /api/releases handles API errors gracefully", async () => {
   mock.method(console, "error", () => {});
 
   try {
-    const response = await GET();
+    const response = await GET({ headers: new Headers({ "oai-authenticated-user-email": "test@example.com", "x-chatgpt-proxy-secret": process.env.CHATGPT_PROXY_SECRET || "" }) });
     assert.equal(response.status, 502);
     const data = await response.json();
     assert.equal(data.error, "Could not refresh the theatrical feed");
@@ -169,4 +169,11 @@ test("GET /api/releases handles API errors gracefully", async () => {
     if (originalTmdbKey !== undefined) process.env.TMDB_API_KEY = originalTmdbKey;
     else delete process.env.TMDB_API_KEY;
   }
+});
+
+test("GET /api/releases returns 401 Unauthorized for unauthenticated users", async () => {
+  const response = await GET({ headers: new Headers() });
+  assert.equal(response.status, 401);
+  const data = await response.json();
+  assert.equal(data.error, "Unauthorized");
 });

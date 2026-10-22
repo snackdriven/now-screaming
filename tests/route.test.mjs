@@ -38,7 +38,7 @@ test("GET falls back to released when TMDb now-playing refresh fails", async () 
   };
 
   try {
-    const response = await GET();
+    const response = await GET({ headers: new Headers({ "oai-authenticated-user-email": "test@example.com", "x-chatgpt-proxy-secret": process.env.CHATGPT_PROXY_SECRET || "" }) });
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(nowPlayingCalls, 3);
