@@ -48,9 +48,7 @@ export function parseChatGPTUser(
     }
     console.warn("Security Warning: CHATGPT_PROXY_SECRET is not set. Allowing access in development.");
   } else {
-    const providedSecret =
-      requestHeaders.get(PROXY_SECRET_HEADER) ??
-      requestHeaders.get("authorization")?.replace(/^Bearer\s+/i, "");
+    const providedSecret = requestHeaders.get(PROXY_SECRET_HEADER);
     if (!isTimingSafeEqual(providedSecret, expectedSecret)) return null;
   }
 
