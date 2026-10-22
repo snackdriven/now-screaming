@@ -175,7 +175,6 @@ test("GET /api/releases handles getNowPlayingMovieIds error gracefully", async (
   const originalTmdbKey = process.env.TMDB_API_KEY;
   process.env.TMDB_API_KEY = "tmdb-test-key";
 
-  const today = new Date().toISOString().slice(0, 10);
   const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const mockFetch = mock.fn(async (urlStr) => {
