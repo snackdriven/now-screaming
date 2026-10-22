@@ -84,3 +84,12 @@ test("retains the development-only no-secret warning", () => {
     console.warn = originalWarn;
   }
 });
+
+test('secret comparisons reject unequal lengths and preserve UTF-8 equality', () => {
+  for (const wrong of ['x', secret + 'x', 'x'.repeat(4096)]) {
+    assert.equal(parseChatGPTUser(headers({ 'x-chatgpt-proxy-secret': wrong }), secret, true), null);
+  }
+  const unicodeSecret = 'caf\u00e9';
+  assert.equal(parseChatGPTUser(headers({ 'x-chatgpt-proxy-secret': unicodeSecret }), unicodeSecret, true)?.email, 'test@example.com');
+  assert.equal(parseChatGPTUser(headers({ 'x-chatgpt-proxy-secret': 'cafe' }), unicodeSecret, true), null);
+});

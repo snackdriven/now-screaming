@@ -27,7 +27,7 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
   const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const mockFetch = mock.fn(async (urlStr, init) => {
+  const mockFetch = mock.fn(async (urlStr) => {
     const url = new URL(urlStr);
 
     // TMDb Discover Movie API
@@ -163,6 +163,68 @@ test("GET /api/releases handles API errors gracefully", async () => {
     assert.equal(response.status, 502);
     const data = await response.json();
     assert.equal(data.error, "Could not refresh the theatrical feed");
+  } finally {
+    console.error = originalConsoleError;
+    globalThis.fetch = originalFetch;
+    if (originalTmdbKey !== undefined) process.env.TMDB_API_KEY = originalTmdbKey;
+    else delete process.env.TMDB_API_KEY;
+  }
+});
+
+test("GET /api/releases handles getNowPlayingMovieIds error gracefully", async () => {
+  const originalTmdbKey = process.env.TMDB_API_KEY;
+  process.env.TMDB_API_KEY = "tmdb-test-key";
+
+  const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const mockFetch = mock.fn(async (urlStr) => {
+    const url = new URL(urlStr);
+
+    if (url.hostname === "api.themoviedb.org" && url.pathname === "/3/discover/movie") {
+      // Return a recent movie to verify that when now_playing throws, it defaults to an empty set
+      // and the movie is categorized as "released".
+      return new Response(JSON.stringify({
+        results: [
+          {
+            id: 3,
+            title: "Expected Now Playing Movie",
+            release_date: pastDate,
+            genre_ids: [27],
+            overview: "",
+            poster_path: null,
+            backdrop_path: null
+          }
+        ]
+      }), { status: 200 });
+    }
+
+    if (url.hostname === "api.themoviedb.org" && url.pathname === "/3/movie/now_playing") {
+      throw new Error("Network error for now_playing");
+    }
+
+    return new Response("Not found", { status: 404 });
+  });
+
+  const originalFetch = globalThis.fetch;
+  mock.method(globalThis, "fetch", mockFetch);
+  const originalConsoleError = console.error;
+  let consoleErrorCalledCount = 0;
+  mock.method(console, "error", (...args) => {
+    if (args[0] === "Could not refresh TMDb now-playing titles") {
+      consoleErrorCalledCount++;
+    }
+  });
+
+  try {
+    const response = await GET();
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.ok(data.releases);
+
+    // We mocked discover/movie to return a recent movie. Since now_playing failed,
+    // it won't be in the nowPlayingMovieIds set. Therefore, it should be marked as "released".
+    assert.equal(data.releases[0].stage, "released");
+    assert.equal(consoleErrorCalledCount, 1);
   } finally {
     console.error = originalConsoleError;
     globalThis.fetch = originalFetch;
