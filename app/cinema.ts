@@ -44,11 +44,12 @@ export function cinemaPool(
   watched: string[],
 ) {
   const needle = query.trim().toLowerCase();
+  const watchedSet = new Set(watched);
   return movies
     .filter((movie) => {
       const inView =
         view === "watched"
-          ? watched.includes(movie.title)
+          ? watchedSet.has(movie.title)
           : view === "home"
             ? movie.stage === "streaming"
             : movie.stage !== "streaming";
