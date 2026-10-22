@@ -27,7 +27,7 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
   const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const mockFetch = mock.fn(async (urlStr, init) => {
+  const mockFetch = mock.fn(async (urlStr) => {
     const url = new URL(urlStr);
 
     // TMDb Discover Movie API
@@ -74,20 +74,9 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
       }), { status: 200 });
     }
 
-    // Watchmode Search API
-    if (url.hostname === "api.watchmode.com" && url.pathname === "/v1/search/") {
-      const tmdbId = url.searchParams.get("search_value");
-      if (tmdbId === "2") {
-        return new Response(JSON.stringify({
-          title_results: [{ id: 102 }]
-        }), { status: 200 });
-      }
-      return new Response(JSON.stringify({ title_results: [] }), { status: 200 });
-    }
-
     // Watchmode Sources API
     if (url.hostname === "api.watchmode.com" && url.pathname.includes("/sources/")) {
-      if (url.pathname.includes("/102/")) {
+      if (url.pathname.includes("/movie-2/")) {
         return new Response(JSON.stringify([
           { name: "Netflix", type: "sub", region: "US" },
           { name: "Netflix", type: "sub", region: "GB" } // Non-US should be filtered

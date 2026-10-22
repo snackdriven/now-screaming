@@ -48,10 +48,8 @@ async function nowPlayingIds() {
 async function homeAvailability(id) {
   if (!WATCHMODE) return null;
   try {
-    const search = await getJson(`https://api.watchmode.com/v1/search/?${new URLSearchParams({ apiKey: WATCHMODE, search_field: "tmdb_movie_id", search_value: String(id) })}`);
-    const match = search.title_results?.[0];
-    if (!match) return null;
-    const sources = await getJson(`https://api.watchmode.com/v1/title/${match.id}/sources/?apiKey=${WATCHMODE}`);
+    const titleId = `movie-${id}`;
+    const sources = await getJson(`https://api.watchmode.com/v1/title/${titleId}/sources/?apiKey=${WATCHMODE}`);
     const us = (sources || []).filter((source) => source.region === "US");
     const subscription = us.filter((source) => source.type === "sub" || source.type === "free");
     const home = subscription.length ? subscription : us.filter((source) => source.type === "rent" || source.type === "buy");

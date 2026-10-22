@@ -9,7 +9,7 @@ type TmdbMovie = {
   genre_ids: number[];
 };
 
-type WatchmodeSearch = { title_results?: Array<{ id: number }> };
+
 type WatchmodeSource = { name: string; type: "sub" | "free" | "rent" | "buy" | string; region: string };
 
 const genreNames: Record<number, string> = {
@@ -51,13 +51,8 @@ async function getNowPlayingMovieIds(apiKey: string) {
 }
 
 async function getHomeAvailability(tmdbId: number, apiKey: string) {
-  const search = new URL("https://api.watchmode.com/v1/search/");
-  search.search = new URLSearchParams({ apiKey, search_field: "tmdb_movie_id", search_value: String(tmdbId) }).toString();
-  const searchResponse = await fetch(search, { next: { revalidate: 21600 } });
-  if (!searchResponse.ok) return null;
-  const match = (await searchResponse.json() as WatchmodeSearch).title_results?.[0];
-  if (!match) return null;
-  const sourcesResponse = await fetch(`https://api.watchmode.com/v1/title/${match.id}/sources/?apiKey=${apiKey}`, { next: { revalidate: 21600 } });
+  const titleId = `movie-${tmdbId}`;
+  const sourcesResponse = await fetch(`https://api.watchmode.com/v1/title/${titleId}/sources/?apiKey=${apiKey}`, { next: { revalidate: 21600 } });
   if (!sourcesResponse.ok) return null;
   const sources = (await sourcesResponse.json() as WatchmodeSource[]).filter((source) => source.region === "US");
   const subscription = sources.filter((source) => source.type === "sub" || source.type === "free");
