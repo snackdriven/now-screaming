@@ -22,15 +22,26 @@ export function movieTime(movie: Movie) {
     Number(movie.date.split(" ")[1]),
   ).getTime();
 }
+const providerCache = new Map<string, string[]>();
+const emptyProviders: string[] = [];
+
 export function providers(movie: Movie) {
-  return [
+  const platform = movie.platform;
+  if (!platform) return emptyProviders;
+
+  let cached = providerCache.get(platform);
+  if (cached !== undefined) return cached;
+
+  cached = [
     ...new Set(
-      (movie.platform ?? "")
+      platform
         .split(" · ")
         .map((value) => value.trim())
         .filter(Boolean),
     ),
   ];
+  providerCache.set(platform, cached);
+  return cached;
 }
 export function rentalOnly(movie: Movie) {
   return /rent|buy/i.test(movie.availability);
