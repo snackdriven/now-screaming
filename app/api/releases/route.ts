@@ -31,18 +31,21 @@ function shortNote(overview: string) {
 async function getNowPlayingMovieIds(apiKey: string) {
   const pages = [1, 2, 3];
   try {
-    const responses = await Promise.all(pages.map((page) => fetch(
-      `https://api.themoviedb.org/3/movie/now_playing?${new URLSearchParams({
-        api_key: apiKey,
-        language: "en-US",
-        region: "US",
-        page: String(page),
-      })}`,
-      { next: { revalidate: 21600 } },
-    )));
-    const payloads = await Promise.all(responses.map(async (response) => response.ok
-      ? response.json() as Promise<{ results: Array<{ id: number }> }>
-      : { results: [] }));
+    const payloads = await Promise.all(pages.map(async (page) => {
+      const response = await fetch(
+        `https://api.themoviedb.org/3/movie/now_playing?${new URLSearchParams({
+          api_key: apiKey,
+          language: "en-US",
+          region: "US",
+          page: String(page),
+        })}`,
+        { next: { revalidate: 21600 } },
+      );
+      if (response.ok) {
+        return response.json() as Promise<{ results: Array<{ id: number }> }>;
+      }
+      return { results: [] };
+    }));
     return new Set(payloads.flatMap((payload) => payload.results.map((movie) => movie.id)));
   } catch (error) {
     console.error("Could not refresh TMDb now-playing titles", error);
