@@ -62,9 +62,18 @@ async function getHomeAvailability(tmdbId: number, apiKey: string) {
   if (!match) return null;
   const sourcesResponse = await fetch(`https://api.watchmode.com/v1/title/${match.id}/sources/?apiKey=${apiKey}`, { next: { revalidate: 21600 } });
   if (!sourcesResponse.ok) return null;
-  const sources = (await sourcesResponse.json() as WatchmodeSource[]).filter((source) => source.region === "US");
-  const subscription = sources.filter((source) => source.type === "sub" || source.type === "free");
-  const home = subscription.length ? subscription : sources.filter((source) => source.type === "rent" || source.type === "buy");
+  const allSources = await sourcesResponse.json() as WatchmodeSource[];
+  const subscription: WatchmodeSource[] = [];
+  const rentOrBuy: WatchmodeSource[] = [];
+  for (const source of allSources) {
+    if (source.region !== "US") continue;
+    if (source.type === "sub" || source.type === "free") {
+      subscription.push(source);
+    } else if (source.type === "rent" || source.type === "buy") {
+      rentOrBuy.push(source);
+    }
+  }
+  const home = subscription.length > 0 ? subscription : rentOrBuy;
   if (!home.length) return null;
   return {
     availability: subscription.length ? "Streaming now" : "Rent or buy",
