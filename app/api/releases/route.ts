@@ -119,9 +119,13 @@ function organizeMovies(recentResults: TmdbMovie[], upcomingResults: TmdbMovie[]
     .filter((movie) => movie.release_date > today)
     .slice(0, 12)
     .sort((a, b) => a.release_date.localeCompare(b.release_date));
-  return [...recentMovies, ...upcomingMovies].filter((movie, index, all) =>
-    all.findIndex((candidate) => candidate.id === movie.id) === index,
-  );
+  const map = new Map<number, TmdbMovie>();
+  for (const movie of [...recentMovies, ...upcomingMovies]) {
+    if (!map.has(movie.id)) {
+      map.set(movie.id, movie);
+    }
+  }
+  return Array.from(map.values());
 }
 
 async function formatReleases(movies: TmdbMovie[], today: string, nowPlayingMovieIds: Set<number>, watchmodeApiKey: string | undefined) {
