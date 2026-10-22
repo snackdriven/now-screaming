@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test, { describe, beforeEach, afterEach } from "node:test";
+import test from "node:test";
 import { GET } from "../app/api/trailer/[id]/route.ts";
 
 // Utility to create a mock request
@@ -24,7 +24,8 @@ test("GET redirects to YouTube search when TMDB_API_KEY is missing", async () =>
     assert.equal(res.status, 302);
     assert.equal(res.headers.get("location"), "https://www.youtube.com/results?search_query=horror%20movie%20trailer");
   } finally {
-    process.env.TMDB_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = originalKey;
   }
 });
 
@@ -40,7 +41,8 @@ test("GET redirects to YouTube search when id is invalid", async () => {
     assert.equal(res.status, 302);
     assert.equal(res.headers.get("location"), "https://www.youtube.com/results?search_query=horror%20movie%20trailer");
   } finally {
-    process.env.TMDB_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = originalKey;
   }
 });
 
@@ -56,7 +58,8 @@ test("GET redirects to YouTube search with query when q parameter is provided an
     assert.equal(res.status, 302);
     assert.equal(res.headers.get("location"), "https://www.youtube.com/results?search_query=The%20Matrix%20trailer");
   } finally {
-    process.env.TMDB_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = originalKey;
   }
 });
 
@@ -77,7 +80,8 @@ test("GET redirects to YouTube search when TMDb fetch throws an error", async ()
     assert.equal(res.status, 302);
     assert.equal(res.headers.get("location"), "https://www.youtube.com/results?search_query=horror%20movie%20trailer");
   } finally {
-    process.env.TMDB_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = originalKey;
     globalThis.fetch = originalFetch;
   }
 });
@@ -99,7 +103,8 @@ test("GET redirects to YouTube search when TMDb fetch returns non-200", async ()
     assert.equal(res.status, 302);
     assert.equal(res.headers.get("location"), "https://www.youtube.com/results?search_query=horror%20movie%20trailer");
   } finally {
-    process.env.TMDB_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = originalKey;
     globalThis.fetch = originalFetch;
   }
 });
@@ -154,6 +159,7 @@ test("GET selects the best video match based on scoring logic", async () => {
     }
   ];
 
+  try {
   for (const { name, videos, expectedKey, expectedFallback } of testCases) {
     globalThis.fetch = async () => ({
       ok: true,
@@ -177,6 +183,9 @@ test("GET selects the best video match based on scoring logic", async () => {
     }
   }
 
-  process.env.TMDB_API_KEY = originalKey;
-  globalThis.fetch = originalFetch;
+  } finally {
+    if (originalKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = originalKey;
+    globalThis.fetch = originalFetch;
+  }
 });
