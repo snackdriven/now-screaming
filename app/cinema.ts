@@ -22,15 +22,29 @@ export function movieTime(movie: Movie) {
     Number(movie.date.split(" ")[1]),
   ).getTime();
 }
+const providerCache = new Map<string, string[]>();
+const MAX_PROVIDER_CACHE_ENTRIES = 256;
+
 export function providers(movie: Movie) {
-  return [
+  const platform = movie.platform;
+  if (!platform) return [];
+
+  let cached = providerCache.get(platform);
+  if (cached !== undefined) return [...cached];
+
+  cached = [
     ...new Set(
-      (movie.platform ?? "")
+      platform
         .split(" · ")
         .map((value) => value.trim())
         .filter(Boolean),
     ),
   ];
+  if (providerCache.size >= MAX_PROVIDER_CACHE_ENTRIES) {
+    providerCache.delete(providerCache.keys().next().value!);
+  }
+  providerCache.set(platform, cached);
+  return [...cached];
 }
 export function rentalOnly(movie: Movie) {
   return /rent|buy/i.test(movie.availability);
@@ -44,11 +58,12 @@ export function cinemaPool(
   watched: string[],
 ) {
   const needle = query.trim().toLowerCase();
+  const watchedSet = new Set(watched);
   return movies
     .filter((movie) => {
       const inView =
         view === "watched"
-          ? watched.includes(movie.title)
+          ? watchedSet.has(movie.title)
           : view === "home"
             ? movie.stage === "streaming"
             : movie.stage !== "streaming";
