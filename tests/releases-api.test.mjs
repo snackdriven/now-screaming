@@ -75,8 +75,8 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
     }
 
     // Watchmode Sources API
-    if (url.hostname === "api.watchmode.com" && url.pathname.includes("/sources/")) {
-      if (url.pathname.includes("/movie-2/")) {
+    if (url.hostname === "api.watchmode.com" && /^\/v1\/title\/movie-\d+\/sources\/$/.test(url.pathname)) {
+      if (url.pathname === "/v1/title/movie-2/sources/") {
         return new Response(JSON.stringify([
           { name: "Netflix", type: "sub", region: "US" },
           { name: "Netflix", type: "sub", region: "GB" } // Non-US should be filtered
@@ -100,6 +100,14 @@ test("GET /api/releases fetches and transforms releases with mocked APIs", async
 
     assert.ok(data.releases);
     assert.equal(data.releases.length, 3);
+    const watchmodeCalls = mockFetch.mock.calls.filter((call) =>
+      new URL(call.arguments[0]).hostname === "api.watchmode.com",
+    );
+    assert.deepEqual(watchmodeCalls.map((call) => new URL(call.arguments[0]).pathname).sort(), [
+      "/v1/title/movie-2/sources/", "/v1/title/movie-3/sources/",
+    ]);
+    assert.ok(watchmodeCalls.every((call) => call.arguments[1].next.revalidate === 21600));
+
 
     // Recent movie with streaming
     const recent = data.releases.find(r => r.title === "Recent Movie");
