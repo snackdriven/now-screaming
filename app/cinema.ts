@@ -23,14 +23,14 @@ export function movieTime(movie: Movie) {
   ).getTime();
 }
 const providerCache = new Map<string, string[]>();
-const emptyProviders: string[] = [];
+const MAX_PROVIDER_CACHE_ENTRIES = 256;
 
 export function providers(movie: Movie) {
   const platform = movie.platform;
-  if (!platform) return emptyProviders;
+  if (!platform) return [];
 
   let cached = providerCache.get(platform);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) return [...cached];
 
   cached = [
     ...new Set(
@@ -40,8 +40,11 @@ export function providers(movie: Movie) {
         .filter(Boolean),
     ),
   ];
+  if (providerCache.size >= MAX_PROVIDER_CACHE_ENTRIES) {
+    providerCache.delete(providerCache.keys().next().value!);
+  }
   providerCache.set(platform, cached);
-  return cached;
+  return [...cached];
 }
 export function rentalOnly(movie: Movie) {
   return /rent|buy/i.test(movie.availability);
