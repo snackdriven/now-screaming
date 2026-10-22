@@ -29,9 +29,10 @@ type PoolInput = {
 // this one pool, which is what keeps a tab from advertising rows the list won't render.
 export function releasePool({ movies, query, showWatched, watched, featureTitle }: PoolInput): Movie[] {
   const needle = query.trim().toLowerCase();
+  const watchedSet = showWatched ? new Set(watched) : null;
   return movies.filter((movie) => {
     const queryMatch = !needle || [movie.title, movie.genre, movie.note, movie.platform ?? ""].some((field) => field.toLowerCase().includes(needle));
-    const watchedMatch = !showWatched || watched.includes(movie.title);
+    const watchedMatch = !showWatched || watchedSet!.has(movie.title);
     // The hero sits above the list, so the list drops the duplicate — except in the watched view,
     // where that's the only place it can appear and it has no watched toggle of its own.
     const notFeature = showWatched || movie.title !== featureTitle;
