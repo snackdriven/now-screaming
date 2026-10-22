@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual, createHash } from "crypto";
 
 export type ChatGPTUser = {
   displayName: string;
@@ -20,9 +20,10 @@ function isTimingSafeEqual(
   b: string | undefined | null,
 ): boolean {
   if (!a || !b) return false;
-  if (a.length !== b.length) return false;
   try {
-    return timingSafeEqual(Buffer.from(a, "utf-8"), Buffer.from(b, "utf-8"));
+    const aHash = createHash("sha256").update(a).digest();
+    const bHash = createHash("sha256").update(b).digest();
+    return timingSafeEqual(aHash, bHash);
   } catch {
     return false;
   }
