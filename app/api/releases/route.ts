@@ -31,18 +31,21 @@ function shortNote(overview: string) {
 async function getNowPlayingMovieIds(apiKey: string) {
   const pages = [1, 2, 3];
   try {
-    const responses = await Promise.all(pages.map((page) => fetch(
-      `https://api.themoviedb.org/3/movie/now_playing?${new URLSearchParams({
-        api_key: apiKey,
-        language: "en-US",
-        region: "US",
-        page: String(page),
-      })}`,
-      { next: { revalidate: 21600 } },
-    )));
-    const payloads = await Promise.all(responses.map(async (response) => response.ok
-      ? response.json() as Promise<{ results: Array<{ id: number }> }>
-      : { results: [] }));
+    const payloads = await Promise.all(pages.map(async (page) => {
+      const response = await fetch(
+        `https://api.themoviedb.org/3/movie/now_playing?${new URLSearchParams({
+          api_key: apiKey,
+          language: "en-US",
+          region: "US",
+          page: String(page),
+        })}`,
+        { next: { revalidate: 21600 } },
+      );
+      if (response.ok) {
+        return response.json() as Promise<{ results: Array<{ id: number }> }>;
+      }
+      return { results: [] };
+    }));
     return new Set(payloads.flatMap((payload) => payload.results.map((movie) => movie.id)));
   } catch (error) {
     console.error("Could not refresh TMDb now-playing titles", error);
@@ -59,9 +62,18 @@ async function getHomeAvailability(tmdbId: number, apiKey: string) {
   if (!match) return null;
   const sourcesResponse = await fetch(`https://api.watchmode.com/v1/title/${match.id}/sources/?apiKey=${apiKey}`, { next: { revalidate: 21600 } });
   if (!sourcesResponse.ok) return null;
-  const sources = (await sourcesResponse.json() as WatchmodeSource[]).filter((source) => source.region === "US");
-  const subscription = sources.filter((source) => source.type === "sub" || source.type === "free");
-  const home = subscription.length ? subscription : sources.filter((source) => source.type === "rent" || source.type === "buy");
+  const allSources = await sourcesResponse.json() as WatchmodeSource[];
+  const subscription: WatchmodeSource[] = [];
+  const rentOrBuy: WatchmodeSource[] = [];
+  for (const source of allSources) {
+    if (source.region !== "US") continue;
+    if (source.type === "sub" || source.type === "free") {
+      subscription.push(source);
+    } else if (source.type === "rent" || source.type === "buy") {
+      rentOrBuy.push(source);
+    }
+  }
+  const home = subscription.length > 0 ? subscription : rentOrBuy;
   if (!home.length) return null;
   return {
     availability: subscription.length ? "Streaming now" : "Rent or buy",
@@ -107,9 +119,13 @@ function organizeMovies(recentResults: TmdbMovie[], upcomingResults: TmdbMovie[]
     .filter((movie) => movie.release_date > today)
     .slice(0, 12)
     .sort((a, b) => a.release_date.localeCompare(b.release_date));
-  return [...recentMovies, ...upcomingMovies].filter((movie, index, all) =>
-    all.findIndex((candidate) => candidate.id === movie.id) === index,
-  );
+  const map = new Map<number, TmdbMovie>();
+  for (const movie of [...recentMovies, ...upcomingMovies]) {
+    if (!map.has(movie.id)) {
+      map.set(movie.id, movie);
+    }
+  }
+  return Array.from(map.values());
 }
 
 async function formatReleases(movies: TmdbMovie[], today: string, nowPlayingMovieIds: Set<number>, watchmodeApiKey: string | undefined) {
