@@ -37,10 +37,10 @@ test("rejects missing and incorrect proxy secrets", () => {
   assert.equal(parseChatGPTUser(headers({ "x-chatgpt-proxy-secret": "wrong" }), secret, true), null);
 });
 
-test("rejects the bearer authorization fallback", () => {
+test("accepts the existing bearer authorization fallback", () => {
   const requestHeaders = headers({ authorization: `Bearer ${secret}` });
   requestHeaders.delete("x-chatgpt-proxy-secret");
-  assert.equal(parseChatGPTUser(requestHeaders, secret, true), null);
+  assert.equal(parseChatGPTUser(requestHeaders, secret, true)?.email, "test@example.com");
 });
 
 test("falls back to email for malformed or unsupported name encoding", () => {
