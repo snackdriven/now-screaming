@@ -1,9 +1,8 @@
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
 const portfolio = false;
-const workflow = fs.readFileSync(path.join(__dirname, '../workflows/release-conventions.yml'), 'utf8');
+const workflow = fs.readFileSync(new URL('../workflows/release-conventions.yml', import.meta.url), 'utf8');
 const script = workflow.split('          script: |\n')[1].split('  release-policy:')[0]
   .split('\n').map(line => line.slice(12)).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
