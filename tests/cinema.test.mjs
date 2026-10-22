@@ -61,3 +61,13 @@ test("providers handles missing or empty platform data", () => {
   assert.deepEqual(providers(movie("Empty platform", "soon", { platform: "" })), []);
   assert.deepEqual(providers(movie("Whitespace platform", "soon", { platform: "   " })), []);
 });
+
+test('provider parsing preserves feed order after callers sort or modify results', () => {
+  const film = movie('Shared providers', 'streaming', { platform: 'Amazon Prime Video · Shudder · Amazon Prime Video' });
+  providers(film).sort((a, b) => a.length - b.length);
+  assert.deepEqual(providers(film), ['Amazon Prime Video', 'Shudder']);
+  providers(film).push('Injected provider');
+  assert.deepEqual(providers(film), ['Amazon Prime Video', 'Shudder']);
+  providers(movie('Empty', 'soon')).push('Injected empty provider');
+  assert.deepEqual(providers(movie('Another empty', 'soon')), []);
+});
