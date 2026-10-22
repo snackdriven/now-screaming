@@ -443,11 +443,6 @@ function Lobby({ movies, lobbyMovie, pickMovie, navigate, openMovie }: {
               aria-hidden="true"
             />
           </button>
-          <img
-            src={`${art}cinema-lobby-oversized-smile-fg.webp`}
-            className="ns-booth-fg"
-            alt=""
-          />
         </div>
         {lobbyMovie && (
           <>
