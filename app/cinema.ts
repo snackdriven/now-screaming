@@ -76,9 +76,10 @@ export function cinemaPool(
         inView &&
         inFilter &&
         (!needle ||
-          [movie.title, movie.genre, movie.note, movie.platform ?? ""].some(
-            (value) => value.toLowerCase().includes(needle),
-          ))
+          movie.title.toLowerCase().includes(needle) ||
+          movie.genre.toLowerCase().includes(needle) ||
+          movie.note.toLowerCase().includes(needle) ||
+          (movie.platform ?? "").toLowerCase().includes(needle))
       );
     })
     .sort((a, b) => movieTime(a) - movieTime(b));
