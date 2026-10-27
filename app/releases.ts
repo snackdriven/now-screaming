@@ -35,7 +35,7 @@ export function releasePool({ movies, query, showWatched, watched, featureTitle 
     const watchedMatch = !showWatched || watchedSet!.has(movie.title);
     // The hero sits above the list, so the list drops the duplicate — except in the watched view,
     // where that's the only place it can appear and it has no watched toggle of its own.
-    const notFeature = showWatched || movie.title !== featureTitle;
+    const notFeature = movie.title !== featureTitle;
     return queryMatch && watchedMatch && notFeature;
   });
 }
