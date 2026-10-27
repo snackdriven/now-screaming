@@ -46,7 +46,13 @@ async function getNowPlayingMovieIds(apiKey: string) {
       }
       return { results: [] };
     }));
-    return new Set(payloads.flatMap((payload) => payload.results.map((movie) => movie.id)));
+    const ids = new Set<number>();
+    for (const payload of payloads) {
+      for (const movie of payload.results) {
+        ids.add(movie.id);
+      }
+    }
+    return ids;
   } catch (error) {
     console.error("Could not refresh TMDb now-playing titles", error);
     return new Set<number>();
@@ -78,10 +84,14 @@ async function getHomeAvailability(tmdbId: number, apiKey: string) {
 
 
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const RECENT_DAYS_OFFSET = 90;
+const NEXT_YEAR_DAYS_OFFSET = 370;
+
 function getDiscoverQueries(apiKey: string, today: string) {
-  const recentStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const upcomingStart = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const nextYear = new Date(Date.now() + 370 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const recentStart = new Date(Date.now() - RECENT_DAYS_OFFSET * MS_PER_DAY).toISOString().slice(0, 10);
+  const upcomingStart = new Date(Date.now() + MS_PER_DAY).toISOString().slice(0, 10);
+  const nextYear = new Date(Date.now() + NEXT_YEAR_DAYS_OFFSET * MS_PER_DAY).toISOString().slice(0, 10);
   const commonQuery = {
     api_key: apiKey,
     language: "en-US",
@@ -115,10 +125,11 @@ function organizeMovies(recentResults: TmdbMovie[], upcomingResults: TmdbMovie[]
     .slice(0, 12)
     .sort((a, b) => a.release_date.localeCompare(b.release_date));
   const map = new Map<number, TmdbMovie>();
-  for (const movie of [...recentMovies, ...upcomingMovies]) {
-    if (!map.has(movie.id)) {
-      map.set(movie.id, movie);
-    }
+  for (const movie of recentMovies) {
+    if (!map.has(movie.id)) map.set(movie.id, movie);
+  }
+  for (const movie of upcomingMovies) {
+    if (!map.has(movie.id)) map.set(movie.id, movie);
   }
   return Array.from(map.values());
 }
