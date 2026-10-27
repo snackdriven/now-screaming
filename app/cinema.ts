@@ -52,10 +52,7 @@ export function rentalOnly(movie: Movie) {
 
 export function cinemaPool(
   movies: Movie[],
-  view: CinemaView,
-  filter: string,
-  query: string,
-  watched: string[],
+  { view, filter, query, watched }: { view: CinemaView; filter: string; query: string; watched: string[] }
 ) {
   const needle = query.trim().toLowerCase();
   const watchedSet = new Set(watched);
@@ -97,7 +94,7 @@ export function selectFeature(
     ? movies.find((movie) => movie.title === chosenTitle)
     : undefined;
   if (chosen) return chosen;
-  const candidates = cinemaPool(movies, view, filter, "", []);
+  const candidates = cinemaPool(movies, { view, filter, query: "", watched: [] });
   const preferred =
     view === "home"
       ? candidates.filter((movie) => !rentalOnly(movie))
