@@ -176,7 +176,7 @@ export default function Home({
     chosenTitle,
   );
   const pool = useMemo(() => {
-    const basePool = cinemaPool(movies, view, filter, query, watched);
+    const basePool = cinemaPool(movies, { view, filter, query, watched });
     return view === "watched" || !feature
       ? basePool
       : basePool.filter((movie) => movie.title !== feature.title);
