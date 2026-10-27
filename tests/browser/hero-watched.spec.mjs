@@ -16,6 +16,14 @@ test('featured title can be marked, restored after reload, and unmarked from wat
   await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Featured fixture');
   const mark = hero.getByRole('button', { name: 'Mark Featured fixture as watched', exact: true });
   await expect(mark).toHaveAttribute('aria-pressed', 'false');
+  const color = await mark.evaluate(button => getComputedStyle(button).color);
+  const luminance = channels => channels.map(value => {
+    const channel = value / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  }).reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
+  const foreground = luminance(color.match(/[\d.]+/g).slice(0, 3).map(Number));
+  const paper = luminance([235, 225, 204]);
+  expect((Math.max(foreground, paper) + 0.05) / (Math.min(foreground, paper) + 0.05)).toBeGreaterThanOrEqual(4.5);
   await mark.focus();
   await mark.press('Enter');
   await expect(hero.getByRole('button', { name: 'Unmark Featured fixture as watched', exact: true })).toHaveAttribute('aria-pressed', 'true');
