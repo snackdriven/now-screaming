@@ -3343,6 +3343,23 @@ body {
   font-size: 20px;
   line-height: 1.15;
 }
+
+/* Featured controls sit on paper in both themes, not on a dark movie card. */
+#ns-preview .ns-header .ns-card-actions button {
+  min-height: 44px;
+  min-width: 44px;
+  color: #40271e;
+  border-color: currentColor;
+  background: transparent;
+}
+#ns-preview .ns-header .ns-card-actions button[aria-pressed="true"] {
+  color: #fff;
+  background: #40271e;
+}
+#ns-preview .ns-header .ns-card-actions button:focus-visible {
+  outline: 2px solid #40271e;
+  outline-offset: 3px;
+}
 @media (max-width: 900px) {
   #ns-preview .ns-stub-details strong.ns-long-service {
     font-size: 17px;
