@@ -28,6 +28,7 @@ test('featured title can be marked, restored after reload, and unmarked from wat
   await mark.press('Enter');
   await expect(hero.getByRole('button', { name: 'Unmark Featured fixture as watched', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Watched 1', exact: true }).click();
+  await expect(page.getByText('Your watched movie is featured above.', { exact: true })).toBeVisible();
   await expect(page.locator('article').filter({ hasText: 'Featured fixture' })).toHaveCount(0);
   await page.reload();
   await page.getByRole('button', { name: 'Watch at home', exact: true }).click();

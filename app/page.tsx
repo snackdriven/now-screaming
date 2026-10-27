@@ -308,6 +308,7 @@ export default function Home({
               setSourceStatus={setSourceStatus}
               setRetry={setRetry}
               pool={pool}
+              hasWatchedFeature={!!feature && watched.includes(feature.title)}
               trailer={trailer}
               watchButton={watchButton}
             />
@@ -580,7 +581,7 @@ function FeatureTicket({ feature, homeTicket, resolveTrailer, ticketProvider, wa
 
 function Tracker({
   view, query, setQuery, options, filter, setFilter, setChosenTitle,
-  sourceStatus, setSourceStatus, setRetry, pool, trailer, watchButton
+  sourceStatus, setSourceStatus, setRetry, pool, hasWatchedFeature, trailer, watchButton
 }: {
   view: CinemaView,
   query: string,
@@ -593,6 +594,7 @@ function Tracker({
   setSourceStatus: (s: "loading" | "ok" | "error") => void,
   setRetry: React.Dispatch<React.SetStateAction<number>>,
   pool: Movie[],
+  hasWatchedFeature: boolean,
   trailer: (movie: Movie) => React.ReactNode,
   watchButton: (movie: Movie) => React.ReactNode
 }) {
@@ -716,7 +718,9 @@ function Tracker({
             {query
               ? "No movies match that search."
               : view === "watched"
-                ? "Nothing marked watched yet. Save the movies you’ve survived."
+                ? hasWatchedFeature
+                  ? "Your watched movie is featured above."
+                  : "Nothing marked watched yet. Save the movies you’ve survived."
                 : "No movies in this view yet. Try another filter."}
           </p>
         )}
