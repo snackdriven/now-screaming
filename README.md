@@ -91,4 +91,10 @@ The watched list uses the existing `ns:watched` localStorage key, so saved movie
 
 ## Commits and releases
 
+The tracker does not need application database tables. To opt into D1 migrations,
+set `DB_SCHEMA_PATH` to your own schema file before running `npm run db:generate`.
+The generator refuses an unset path; it never selects the example `notes` table
+automatically. The example at `examples/d1/db/schema.ts` is available only when
+you explicitly choose that path.
+
 See [RELEASE.md](RELEASE.md) for Commitizen commands, SemVer and changelog maintenance.
