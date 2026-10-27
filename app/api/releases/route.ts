@@ -46,7 +46,13 @@ async function getNowPlayingMovieIds(apiKey: string) {
       }
       return { results: [] };
     }));
-    return new Set(payloads.flatMap((payload) => payload.results.map((movie) => movie.id)));
+    const ids = new Set<number>();
+    for (const payload of payloads) {
+      for (const movie of payload.results) {
+        ids.add(movie.id);
+      }
+    }
+    return ids;
   } catch (error) {
     console.error("Could not refresh TMDb now-playing titles", error);
     return new Set<number>();
