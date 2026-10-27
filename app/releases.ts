@@ -31,12 +31,16 @@ export function releasePool({ movies, query, showWatched, watched, featureTitle 
   const needle = query.trim().toLowerCase();
   const watchedSet = showWatched ? new Set(watched) : null;
   return movies.filter((movie) => {
-    const queryMatch = !needle || [movie.title, movie.genre, movie.note, movie.platform ?? ""].some((field) => field.toLowerCase().includes(needle));
-    const watchedMatch = !showWatched || watchedSet!.has(movie.title);
-    // The hero sits above the list, so the list drops the duplicate — except in the watched view,
-    // where that's the only place it can appear and it has no watched toggle of its own.
+    // The hero has its own watched control, so every list drops its duplicate.
     const notFeature = movie.title !== featureTitle;
-    return queryMatch && watchedMatch && notFeature;
+    if (!notFeature) return false;
+
+    const watchedMatch = !showWatched || watchedSet!.has(movie.title);
+    if (!watchedMatch) return false;
+
+    if (!needle) return true;
+
+    return movie.title.toLowerCase().includes(needle) || movie.genre.toLowerCase().includes(needle) || movie.note.toLowerCase().includes(needle) || (movie.platform != null && movie.platform.toLowerCase().includes(needle));
   });
 }
 

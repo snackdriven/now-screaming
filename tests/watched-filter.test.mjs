@@ -27,11 +27,10 @@ test("the hero is hidden from the ordinary list", () => {
   assert.equal(titles(releasePool(view({}))).includes(FEATURE), false);
 });
 
-// Was the bug: you mark something watched, it later becomes the hero, and the watched view
-// silently drops it. The hero has no watched toggle, so it can't be un-marked either.
-test("a watched title still shows in the watched view when it is the hero", () => {
-  const pool = releasePool(view({ showWatched: true, watched: [FEATURE] }));
-  assert.deepEqual(titles(pool), [FEATURE]);
+// The browser regression also verifies the featured title retains its watched control.
+test("watched list omits the controllable hero and retains other watched titles", () => {
+  const pool = releasePool(view({ showWatched: true, watched: [FEATURE, 'The Bay'] }));
+  assert.deepEqual(titles(pool), ['The Bay']);
 });
 
 // Was the bug: counts were computed over the whole catalogue while the list also applied the
