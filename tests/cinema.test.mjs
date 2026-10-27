@@ -24,31 +24,31 @@ const films = [
 ];
 test("all theatrical retains recently released titles and excludes home providers", () => {
   assert.deepEqual(
-    cinemaPool(films, "theaters", "all", "", []).map((m) => m.title),
+    cinemaPool(films, { view: "theaters", filter: "all", query: "", watched: [] }).map((m) => m.title),
     ["Upcoming", "Recent"],
   );
 });
 test("home filters distinguish subscription from rental and search full provider names", () => {
   assert.deepEqual(
-    cinemaPool(films, "home", "subscription", "amazon prime", []).map(
+    cinemaPool(films, { view: "home", filter: "subscription", query: "amazon prime", watched: [] }).map(
       (m) => m.title,
     ),
     ["At home"],
   );
   assert.deepEqual(
-    cinemaPool(films, "home", "rent", "", []).map((m) => m.title),
+    cinemaPool(films, { view: "home", filter: "rent", query: "", watched: [] }).map((m) => m.title),
     ["Rental"],
   );
   assert.deepEqual(providers(films[2]), ["Amazon Prime Video", "Shudder"]);
 });
 test("watched includes a featured title and allows it to be unmarked regardless of stage", () => {
   assert.deepEqual(
-    cinemaPool(films, "watched", "soon", "", ["At home", "Upcoming"]).map(
+    cinemaPool(films, { view: "watched", filter: "soon", query: "", watched: ["At home", "Upcoming"] }).map(
       (m) => m.title,
     ),
     ["Upcoming", "At home"],
   );
-  assert.equal(cinemaPool(films, "watched", "all", "", []).length, 0);
+  assert.equal(cinemaPool(films, { view: "watched", filter: "all", query: "", watched: [] }).length, 0);
 });
 test("feature selection handles empty feeds and honors the chosen movie", () => {
   assert.equal(selectFeature([], "theaters", "soon"), undefined);
