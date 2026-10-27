@@ -1,0 +1,34 @@
+name: Verify application
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare credential-free Worker build fixture
+        run: |
+          mkdir -p .openai
+          printf '%s\n' '{"d1":null,"r2":null}' > .openai/hosting.json
+      - run: npm test
+      - run: npm run test:pages
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

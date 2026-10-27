@@ -65,17 +65,17 @@ test("releasePool handles watched filters correctly", () => {
   );
 });
 
-test("releasePool excludes feature title unless showWatched is true", () => {
+test("releasePool excludes the controllable feature title in all views", () => {
   // hide feature
   assert.deepEqual(
     releasePool({ movies: films, query: "", showWatched: false, watched: [], featureTitle: "Smile 2" }).map(m => m.title),
     ["Late Night with the Devil", "Terrifier 3", "Nosferatu"]
   );
 
-  // show feature in watched view
+  // The featured ticket retains its own watched control.
   assert.deepEqual(
     releasePool({ movies: films, query: "", showWatched: true, watched: ["Smile 2"], featureTitle: "Smile 2" }).map(m => m.title),
-    ["Smile 2"]
+    []
   );
 });
 
