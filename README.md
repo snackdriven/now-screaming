@@ -83,6 +83,8 @@ The static build is live at the link up top. `.github/workflows/pages.yml` refre
 node --env-file=.env.local scripts/snapshot.mjs   # refresh the baked feed by hand
 node --test tests/watched-filter.test.mjs         # release filtering, no DOM needed
 npm test                                          # builds, then checks the rendered HTML
+npx playwright install chromium                   # first browser-test run
+npm run test:e2e                                   # featured watched controls, desktop + mobile
 ```
 
 The watched list uses the existing `ns:watched` localStorage key, so saved movies carry into the redesign and survive browser restarts until site storage is cleared. Marks are keyed on title, so an upstream title change can lose its mark. The theme uses `ns:theme`. If the feed cannot load, the app identifies and displays the saved catalogue in `app/fallback-releases.json` and offers a retry. Public artwork is stored as WebP in both build targets' `design/` asset directories.

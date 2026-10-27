@@ -177,7 +177,7 @@ export default function Home({
   );
   const pool = useMemo(() => {
     const basePool = cinemaPool(movies, { view, filter, query, watched });
-    return view === "watched" || !feature
+    return !feature
       ? basePool
       : basePool.filter((movie) => movie.title !== feature.title);
   }, [movies, view, filter, query, watched, feature]);
@@ -293,6 +293,7 @@ export default function Home({
                 homeTicket={homeTicket}
                 resolveTrailer={resolveTrailer}
                 ticketProvider={ticketProvider}
+                watchButton={watchButton}
               />
             )}
             <Tracker
@@ -489,11 +490,12 @@ function Lobby({ movies, lobbyMovie, pickMovie, navigate, openMovie }: {
   );
 }
 
-function FeatureTicket({ feature, homeTicket, resolveTrailer, ticketProvider }: {
+function FeatureTicket({ feature, homeTicket, resolveTrailer, ticketProvider, watchButton }: {
   feature: Movie,
   homeTicket: boolean,
   resolveTrailer: (movie: Movie) => string | undefined,
-  ticketProvider: string
+  ticketProvider: string,
+  watchButton: (movie: Movie) => React.ReactNode
 }) {
   return (
     <header className="ns-header" aria-label="Featured movie ticket">
@@ -535,6 +537,7 @@ function FeatureTicket({ feature, homeTicket, resolveTrailer, ticketProvider }: 
             )}
           </div>
           <h1 className="ns-movie-heading">{feature.title}</h1>
+          <div className="ns-card-actions">{watchButton(feature)}</div>
         </div>
       </div>
       <div className="ns-header-stub">
