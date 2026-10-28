@@ -1,6 +1,6 @@
 
-import { applyCuration, buildPublishedCsvUrl, parseCurationText, type CurationRow } from "../../curation";
-import curatedSeed from "../../curated-releases.json";
+import { applyCuration, buildPublishedCsvUrl, parseCurationText, type CurationRow } from "../../curation.ts";
+import curatedSeed from "../../curated-releases.json" with { type: "json" };
 
 type TmdbMovie = {
   id: number;
