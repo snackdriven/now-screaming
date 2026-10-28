@@ -87,6 +87,56 @@ npx playwright install chromium                   # first browser-test run
 npm run test:e2e                                   # featured watched controls, desktop + mobile
 ```
 
+---
+
+## Google Sheets Live CMS (Curation & Overrides)
+
+TMDb popularity sort catches the studio wide releases, not the festival midnighters or the Shudder acquisition that three people on Letterboxd are losing their minds over. You can run a Google Sheet as a zero-backend admin UI to pin festival picks, override streaming platforms or dates, attach subgenre/festival tags, or hide false-positive titles.
+
+### Sheet columns
+
+Headers are matched case-insensitively (`tmdb_id` or `TMDb ID`, `festival_buzz` or `Festival Buzz`, `stage` or `Status Override`, etc.):
+
+| Column | Purpose |
+| --- | --- |
+| `action` | `upsert` (default: add or override) or `hide` (drop from the feed) |
+| `title` | Movie title (enough on its own when paired with TMDb enrichment) |
+| `year` | 4-digit release year (`2026`) |
+| `date` | `YYYY-MM-DD`, `Oct 17`, or `10/17/2026` |
+| `tmdb_id` | Optional TMDb numeric ID for exact matching |
+| `stage` | `theaters`, `soon`, `released`, or `streaming` (also accepts `In theaters`, `Coming soon`, `At home`) |
+| `genre` | Subgenre label (`Folk horror`, `Body horror`, `Slasher`) |
+| `festival_buzz` | Appended to the subgenre line (`Sundance Midnight` → `Body horror · Sundance Midnight`) |
+| `availability` | Status label (`Streaming now`, `Rent or buy`, `Theatrical date`, `Limited theatrical`) |
+| `platform` | Streaming/VOD services (`Shudder · AMC+` or comma/pipe-separated) |
+| `note` | Short synopsis or curator hook |
+| `trailer_url` | Direct YouTube link (auto-resolved via TMDb if left blank) |
+| `curated_by` | Optional curator credit |
+
+### Export, curate, and sync
+
+```bash
+# 1. Export the current catalogue to a Sheet-ready CSV
+npm run sheets:export -- --out curation.csv
+
+# 2. Sync back from a shared Google Sheet URL, Spreadsheet ID, or local CSV
+#    (rows with only a title + year are auto-enriched via TMDb and Watchmode)
+node --env-file=.env.local scripts/sheets-sync.mjs --sheet <SPREADSHEET_ID_OR_URL>
+node --env-file=.env.local scripts/sheets-sync.mjs --csv curation.csv
+```
+
+`sheets-sync.mjs` resolves sheets across four transports automatically:
+1. Published/shared CSV export URL (`CURATION_SHEET_CSV_URL` or `--url`)
+2. Google Sheets API v4 (`GOOGLE_SHEETS_API_KEY` + `--sheet`)
+3. Authenticated CLI fallback via the Antigravity `gsheets` skill (`gsheets readonly export`) or `gog` (`gog sheets get`)
+4. Local CSV/TSV file (`--csv`)
+
+Synced rows are saved to `app/curated-releases.json` and merged into `site/public/data/releases.json` and `app/fallback-releases.json`. Both `/api/releases` and `scripts/snapshot.mjs` also apply `app/curated-releases.json` (and optional live `CURATION_SHEET_ID` / `CURATION_SHEET_CSV_URL` env vars) on every refresh.
+
+With the Antigravity `gsheets` skill, you can create and seed a live curation sheet directly from chat (`gsheets mutate create --title "Now Screaming Curation"` then `npm run sheets:export -- --out curation.csv --sheet <ID> --push-sheet`) and use Gemini in Sheets to fill in subgenres or festival notes before syncing back.
+
+---
+
 The watched list uses the existing `ns:watched` localStorage key, so saved movies carry into the redesign and survive browser restarts until site storage is cleared. Marks are keyed on title, so an upstream title change can lose its mark. The theme uses `ns:theme`. If the feed cannot load, the app identifies and displays the saved catalogue in `app/fallback-releases.json` and offers a retry. Public artwork is stored as WebP in both build targets' `design/` asset directories.
 
 ## Commits and releases

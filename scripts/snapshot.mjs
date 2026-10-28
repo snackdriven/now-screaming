@@ -2,8 +2,9 @@
 // Runs the same logic as app/api/releases/route.ts using the secret TMDb/Watchmode keys,
 // resolves each trailer to a direct YouTube URL, and writes pages/public/data/releases.json.
 // The keys live only in CI (GitHub Actions secrets), never in the shipped browser bundle.
-import { writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { applyCuration, buildPublishedCsvUrl, parseCurationText } from "../app/curation.ts";
 
 const TMDB = process.env.TMDB_API_KEY;
 const WATCHMODE = process.env.WATCHMODE_API_KEY;
@@ -128,10 +129,32 @@ async function main() {
     });
   }
 
+  let curationRows = [];
+  try {
+    const rawCurated = JSON.parse(await readFile("app/curated-releases.json", "utf8"));
+    if (Array.isArray(rawCurated.items)) curationRows = rawCurated.items;
+  } catch {
+    // Optional bundled curation file
+  }
+  const liveSheet = process.env.CURATION_SHEET_CSV_URL || process.env.CURATION_SHEET_ID;
+  if (liveSheet) {
+    try {
+      const csvUrl = buildPublishedCsvUrl(liveSheet, process.env.CURATION_SHEET_GID);
+      const sheetRes = await fetch(csvUrl);
+      if (sheetRes.ok) {
+        curationRows = parseCurationText(await sheetRes.text());
+      }
+    } catch (error) {
+      console.warn("Could not fetch live curation sheet during snapshot, using bundled curation:", error.message);
+    }
+  }
+
+  const finalReleases = applyCuration(releases, curationRows);
+
   const out = "site/public/data/releases.json";
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, `${JSON.stringify({ releases, updatedAt: new Date().toISOString() }, null, 2)}\n`);
-  console.log(`Wrote ${releases.length} releases to ${out}`);
+  await writeFile(out, `${JSON.stringify({ releases: finalReleases, updatedAt: new Date().toISOString() }, null, 2)}\n`);
+  console.log(`Wrote ${finalReleases.length} releases to ${out}`);
 }
 
 main().catch((error) => {
