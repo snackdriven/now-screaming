@@ -1,7 +1,4 @@
 
-import { applyCuration, buildPublishedCsvUrl, parseCurationText, type CurationRow } from "../../curation.ts";
-import curatedSeed from "../../curated-releases.json" with { type: "json" };
-
 type TmdbMovie = {
   id: number;
   title: string;
@@ -208,24 +205,7 @@ export async function GET() {
     const movies = organizeMovies(recentData.results, upcomingData.results, today);
     const releases = await formatReleases(movies, today, nowPlayingMovieIds, watchmodeApiKey);
 
-    let curationRows: CurationRow[] = Array.isArray(curatedSeed.items)
-      ? (curatedSeed.items as CurationRow[])
-      : [];
-    const liveSheet = process.env.CURATION_SHEET_CSV_URL || process.env.CURATION_SHEET_ID;
-    if (liveSheet) {
-      try {
-        const csvUrl = buildPublishedCsvUrl(liveSheet, process.env.CURATION_SHEET_GID);
-        const sheetRes = await fetch(csvUrl, { next: { revalidate: 300 } });
-        if (sheetRes.ok) {
-          curationRows = parseCurationText(await sheetRes.text());
-        }
-      } catch (sheetError) {
-        console.warn("Could not fetch live curation sheet, falling back to bundled curation", sheetError);
-      }
-    }
-    const finalReleases = applyCuration(releases, curationRows);
-
-    return Response.json({ releases: finalReleases, updatedAt: new Date().toISOString() }, {
+    return Response.json({ releases, updatedAt: new Date().toISOString() }, {
       headers: { "Cache-Control": "public, s-maxage=21600, stale-while-revalidate=86400" },
     });
   } catch (error) {

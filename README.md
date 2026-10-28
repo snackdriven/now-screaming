@@ -1,150 +1,63 @@
 # Now Screaming
 
-You are going to remember a horror movie you meant to see in theaters about three weeks after it leaves them.
+Submitted for your approval: a horror movie you swore you were going to see in theaters. You will remember it exists three weeks after the multiplex pulls it from the marquee.
 
-Six months later you'll find out it quietly landed on streaming, watch the trailer, decide you were always going to see this, and lose track of it again.
+Six months later you'll hear it landed on streaming, watch the trailer at 1:15 a.m., decide you were always going to watch this tonight, and lose track of it again. It has slipped into the fifth dimension of entertainment distribution, a shadow territory between theatrical exclusivity and a licensing window nobody bothered to announce.
 
-This is for that. Your memory did its best: it tripped on flat ground while the killer walked.
+Your memory tripped on flat ground while the killer walked. This is a marquee at the edge of town built to keep watch for you.
 
-**[Enter the queue if you're ready →](https://now-screaming.snackdriven.com/)**
-
----
+**[Step up to the box office](https://now-screaming.snackdriven.com/)**
 
 ## The premise
 
-A vintage cinema lobby and release calendar for horror movies that are:
+A vintage cinema lobby and release calendar tracking horror across three states of existence:
 
 - Coming to U.S. theaters
 - Recently released in theaters
-- Available at home through subscription streaming, rental, or purchase
+- Available at home via subscription streaming, rental, or purchase
 
-It tracks the theatrical date first, then checks whether something has clawed its way onto subscription streaming or rent/buy. No more finding out *The One You Wanted To See* has been on Peacock for five months because the algorithm decided you needed another true-crime documentary instead.
+It tracks the theatrical date first, then checks whether a title has clawed its way onto streaming or VOD. No more finding out *The One You Meant To See* has been sitting on Peacock for five months while the algorithm fed you another documentary about a suburban embezzler.
 
----
+## Inside the lobby
 
-## What's in the dark
+Start under the marquee, then step into the monthly theatrical calendar, the at-home poster grid, or your watched list. Hovering or focusing a paper ticket peels it back to reveal the backdrop. The lobby's hero poster and fallen calendar date follow the next release in the feed.
 
-Start in the cinema lobby, then choose the monthly theatrical calendar, the at-home poster grid, or your watched list. The paper ticket reveals the actual movie backdrop on hover or keyboard focus. Light and dark themes and watched movies persist in your browser. The lobby's poster and fallen date follow the next release in the feed.
+Each title carries official WebP posters and backdrops (`design/`), chronological U.S. theatrical timing, separate callouts for subscription streaming vs. four-dollar rentals, YouTube trailer links (with a search fallback), and a persistent watched list (`ns:watched` and `ns:theme` in `localStorage`). If the live feed fails in the dark, the lobby falls back to `app/fallback-releases.json`.
 
-Every live title gets:
-
-- **Posters and backdrops.** Official artwork for each title.
-- **Theatrical timing.** Upcoming and recent U.S. horror, in chronological order. The next release gets the hero card.
-- **Where to watch.** Subscription streaming is listed separately from rental and purchase.
-- **Official trailers.** A link to the best YouTube trailer, and a plain YouTube search as a fallback when nobody has posted one yet.
-- **A watched list.** Mark what you've seen. It saves in your browser and survives a reload.
-
----
-
-## Data sources
-
-Movie metadata, dates, artwork, and trailers come from [TMDb](https://www.themoviedb.org/). U.S. streaming, rental, and purchase availability comes from [Watchmode](https://api.watchmode.com/).
-
-The Worker caches availability for six hours. The live static site refreshes its feed on a six-hour build schedule, so a new Shudder arrival can take a little while to appear.
-
----
+Metadata, artwork, and trailers come from [TMDb](https://www.themoviedb.org/). U.S. streaming and VOD availability comes from [Watchmode](https://api.watchmode.com/), cached for six hours on both the Cloudflare Worker and the static build.
 
 ## Run it locally
 
-You'll need Node.js 22.13+ and API keys from TMDb and Watchmode.
-
-```bash
-npm install
-npm run dev
-```
-
-Put your keys in `.env.local`:
+Needs Node.js 22.13+ and keys from TMDb and Watchmode in `.env.local` (keep it out of commits):
 
 ```bash
 TMDB_API_KEY=your_tmdb_key
 WATCHMODE_API_KEY=your_watchmode_key
 ```
 
-Keep `.env.local` out of commits; the API keys belong on your machine or in deployment secrets.
-
----
-
-## Dev
-
-React, TypeScript, Vinext, and Tailwind, with two build targets:
-
 ```bash
-npm run build        # Cloudflare Worker artifact: asks the APIs at request time
-npm run build:pages  # static site: data baked in at build time
+npm install
+npm run dev
 ```
 
-The Worker build is the original. `/api/releases` calls TMDb and Watchmode when someone loads the page, so the keys stay server-side.
+## Architecture and builds
 
-For GitHub Pages, `scripts/snapshot.mjs` does the API work ahead of time and writes `site/public/data/releases.json`, including resolved YouTube trailer URLs. Both builds render the same `Home` component with a different `dataUrl`. The generated feed is public; the API keys stay in the build environment.
-
-The static build is live at the link up top. `.github/workflows/pages.yml` refreshes the feed and redeploys on every push to `main` and on a six-hour schedule.
+React, TypeScript, Vinext, and Tailwind, sharing the same `Home` component across two targets:
 
 ```bash
-node --env-file=.env.local scripts/snapshot.mjs   # refresh the baked feed by hand
-node --test tests/watched-filter.test.mjs         # release filtering, no DOM needed
-npm test                                          # builds, then checks the rendered HTML
-npx playwright install chromium                   # first browser-test run
-npm run test:e2e                                   # featured watched controls, desktop + mobile
+npm run build        # Cloudflare Worker: queries TMDb + Watchmode at request time (/api/releases)
+npm run build:pages  # GitHub Pages static site: bakes site/public/data/releases.json via scripts/snapshot.mjs
 ```
 
----
-
-## Google Sheets Live CMS (Curation & Overrides)
-
-TMDb popularity sort catches the studio wide releases, not the festival midnighters or the Shudder acquisition that three people on Letterboxd are losing their minds over. You can run a Google Sheet as a zero-backend admin UI to pin festival picks, override streaming platforms or dates, attach subgenre/festival tags, or hide false-positive titles.
-
-### Sheet columns
-
-Headers are matched case-insensitively (`tmdb_id` or `TMDb ID`, `festival_buzz` or `Festival Buzz`, `stage` or `Status Override`, etc.):
-
-| Column | Purpose |
-| --- | --- |
-| `action` | `upsert` (default: add or override) or `hide` (drop from the feed) |
-| `title` | Movie title (enough on its own when paired with TMDb enrichment) |
-| `year` | 4-digit release year (`2026`) |
-| `date` | `YYYY-MM-DD`, `Oct 17`, or `10/17/2026` |
-| `tmdb_id` | Optional TMDb numeric ID for exact matching |
-| `stage` | `theaters`, `soon`, `released`, or `streaming` (also accepts `In theaters`, `Coming soon`, `At home`) |
-| `genre` | Subgenre label (`Folk horror`, `Body horror`, `Slasher`) |
-| `festival_buzz` | Appended to the subgenre line (`Sundance Midnight` → `Body horror · Sundance Midnight`) |
-| `availability` | Status label (`Streaming now`, `Rent or buy`, `Theatrical date`, `Limited theatrical`) |
-| `platform` | Streaming/VOD services (`Shudder · AMC+` or comma/pipe-separated) |
-| `note` | Short synopsis or curator hook |
-| `trailer_url` | Direct YouTube link (auto-resolved via TMDb if left blank) |
-| `curated_by` | Optional curator credit |
-
-### Export, curate, and sync
+`.github/workflows/pages.yml` refreshes the baked feed and redeploys on every push to `main` and every six hours.
 
 ```bash
-# 1. Export the current catalogue to a Sheet-ready CSV
-npm run sheets:export -- --out curation.csv
-
-# 2. Sync back from a shared Google Sheet URL, Spreadsheet ID, or local CSV
-#    (rows with only a title + year are auto-enriched via TMDb and Watchmode)
-node --env-file=.env.local scripts/sheets-sync.mjs --sheet <SPREADSHEET_ID_OR_URL>
-node --env-file=.env.local scripts/sheets-sync.mjs --csv curation.csv
+node --env-file=.env.local scripts/snapshot.mjs   # refresh baked feed by hand
+node --test tests/watched-filter.test.mjs         # unit tests
+npm test                                          # build + HTML check
+npm run test:e2e                                  # Playwright desktop + mobile (npx playwright install chromium first)
 ```
-
-`sheets-sync.mjs` resolves sheets across four transports automatically:
-1. Published/shared CSV export URL (`CURATION_SHEET_CSV_URL` or `--url`)
-2. Google Sheets API v4 (`GOOGLE_SHEETS_API_KEY` + `--sheet`)
-3. Authenticated CLI fallback via the Antigravity `gsheets` skill (`gsheets readonly export`) or `gog` (`gog sheets get`)
-4. Local CSV/TSV file (`--csv`)
-
-Synced rows are saved to `app/curated-releases.json` and merged into `site/public/data/releases.json` and `app/fallback-releases.json`. Both `/api/releases` and `scripts/snapshot.mjs` also apply `app/curated-releases.json` (and optional live `CURATION_SHEET_ID` / `CURATION_SHEET_CSV_URL` env vars) on every refresh.
-
-With the Antigravity `gsheets` skill, you can create and seed a live curation sheet directly from chat (`gsheets mutate create --title "Now Screaming Curation"` then `npm run sheets:export -- --out curation.csv --sheet <ID> --push-sheet`) and use Gemini in Sheets to fill in subgenres or festival notes before syncing back.
-
----
-
-The watched list uses the existing `ns:watched` localStorage key, so saved movies carry into the redesign and survive browser restarts until site storage is cleared. Marks are keyed on title, so an upstream title change can lose its mark. The theme uses `ns:theme`. If the feed cannot load, the app identifies and displays the saved catalogue in `app/fallback-releases.json` and offers a retry. Public artwork is stored as WebP in both build targets' `design/` asset directories.
 
 ## Commits and releases
 
-The tracker does not need application database tables. To opt into D1 migrations,
-set `DB_SCHEMA_PATH` to your own schema file before running `npm run db:generate`.
-The generator refuses an unset path; it never selects the example `notes` table
-automatically. The example at `examples/d1/db/schema.ts` is available only when
-you explicitly choose that path.
-
-See [RELEASE.md](RELEASE.md) for Commitizen commands, SemVer and changelog maintenance.
+No database tables required (`npm run db:generate` only runs if you explicitly set `DB_SCHEMA_PATH`). See [RELEASE.md](RELEASE.md) for Commitizen and SemVer rules.
